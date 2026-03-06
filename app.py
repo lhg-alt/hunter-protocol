@@ -1,6 +1,6 @@
 """
 HUNTER PROTOCOL — 재민의 자동 저점 매수 계산기
-Streamlit + yfinance | 현금 비중 직접 입력 + 블루팀 15% 전략 섹터 + 단계별 투자금 미리보기
+Streamlit + yfinance | 투자 시드(백/청) + 별도 현금 입력 + 블루팀 15% 전략 섹터 
 """
 
 import streamlit as st
@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────
-# CSS (기존 디자인 완벽 유지)
+# CSS
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
@@ -169,7 +169,7 @@ STAGES = [
 ]
 
 # ─────────────────────────────────────────
-# 세션 상태 (딕셔너리 리스트 구조)
+# 세션 상태
 # ─────────────────────────────────────────
 if "white_stocks" not in st.session_state:
     st.session_state.white_stocks = [
@@ -218,30 +218,23 @@ def fmt_usd(v): return "${:,.0f}".format(v)
 def fmt_krw(v): return "₩{:,.0f}".format(v)
 
 # ─────────────────────────────────────────
-# 사이드바 (화이트, 블루, 현금 비중 직접 입력)
+# 사이드바 (투입 시드 vs 별도 현금)
 # ─────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🎯 HUNTER PROTOCOL")
     st.caption("재민의 폭락장 자동 사냥기")
     st.divider()
-    st.markdown("#### 💰 포트폴리오 자산 배분")
-    total_seed    = st.number_input("전체 시드 (USD $)", min_value=1000, max_value=10_000_000, value=100_000, step=1000, format="%d")
-    exchange_rate = st.number_input("환율 (USD→KRW)",    min_value=1000, max_value=2000,        value=1380,   step=10)
     
-    st.markdown("##### ⚖️ 팀별 비중 직접 설정 (%)")
-    rc1, rc2, rc3 = st.columns(3)
-    with rc1:
-        white_ratio = st.number_input("🛡 화이트", min_value=0, max_value=100, value=40, step=5)
-    with rc2:
-        blue_ratio  = st.number_input("🚀 블루", min_value=0, max_value=100, value=45, step=5)
-    with rc3:
-        cash_ratio  = st.number_input("🏦 현금", min_value=0, max_value=100, value=15, step=5)
+    st.markdown("#### 💰 포트폴리오 자산 세팅")
+    total_seed    = st.number_input("주식 투자 시드 (USD $)", min_value=1000, max_value=10_000_000, value=100_000, step=1000, format="%d", help="백팀과 청팀에 분배될 실제 투자 총액")
+    extra_cash    = st.number_input("여유 현금 보유액 (USD $)", min_value=0, max_value=10_000_000, value=20_000, step=1000, format="%d", help="투자와 별개로 보유 중인 현금 (최후의 보루)")
+    exchange_rate = st.number_input("환율 (USD→KRW)", min_value=1000, max_value=2000, value=1380, step=10)
     
-    total_ratio = white_ratio + blue_ratio + cash_ratio
-    if total_ratio != 100:
-        st.error(f"⚠️ 합계: {total_ratio}% (100%로 맞춰주세요)")
-    else:
-        st.success("✅ 비중 설정 완료")
+    st.divider()
+    st.markdown("##### ⚖️ 투자 시드 분배 (%)")
+    white_ratio = st.slider("🛡 화이트 팀 비중", 0, 100, 50, 5)
+    blue_ratio  = 100 - white_ratio
+    st.caption(f"🚀 블루 팀 비중: **{blue_ratio}%**")
     
     st.divider()
     if st.button("🔄  데이터 새로고침", use_container_width=True, type="primary"):
@@ -255,7 +248,7 @@ with st.sidebar:
 
 white_budget = total_seed * (white_ratio / 100)
 blue_budget  = total_seed * (blue_ratio  / 100)
-cash_budget  = total_seed * (cash_ratio  / 100)
+total_assets = total_seed + extra_cash
 
 # ─────────────────────────────────────────
 # 메인 헤더
@@ -265,15 +258,15 @@ with hc1:
     st.markdown('<p class="hunter-title">🎯 HUNTER PROTOCOL</p>', unsafe_allow_html=True)
     st.markdown("재민의 자동 저점 매수 계산기 — **폭락은 두려움이 아니라 기회다**")
 with hc2:
-    st.metric("전체 시드", fmt_usd(total_seed))
+    st.metric("총 자산 (시드 + 현금)", fmt_usd(total_assets))
 st.divider()
 
-st.markdown("### ⚡ 포트폴리오 요약")
+st.markdown("### ⚡ 자산 현황 요약")
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("🛡 화이트 예산", fmt_usd(white_budget), f"{white_ratio}%")
-m2.metric("🚀 블루 예산",   fmt_usd(blue_budget),  f"{blue_ratio}%")
-m3.metric("🏦 현금 예비군", fmt_usd(cash_budget),  f"{cash_ratio}%")
-m4.metric("📌 총 종목 수",  f"{len(st.session_state.white_stocks)} + {len(st.session_state.blue_stocks)}개")
+m1.metric("🛡 화이트 시드", fmt_usd(white_budget), f"{white_ratio}%")
+m2.metric("🚀 블루 시드",   fmt_usd(blue_budget),  f"{blue_ratio}%")
+m3.metric("🏦 여유 현금",   fmt_usd(extra_cash), "별도 보관")
+m4.metric("💱 총 자산(원화)", fmt_krw(total_assets * exchange_rate))
 st.divider()
 
 # 단계 가이드
