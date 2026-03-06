@@ -1,6 +1,6 @@
 """
 HUNTER PROTOCOL — 재민의 자동 저점 매수 계산기
-Streamlit + yfinance | 투자 시드(백/청) + 별도 현금 입력 + 블루팀 15% 전략 섹터 
+Streamlit + yfinance | 투자 시드(백/청) + 별도 현금 + 블루팀 15% 전략 섹터 + 밝은 사이드바
 """
 
 import streamlit as st
@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────
-# CSS
+# CSS (사이드바 밝은 테마로 변경)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
@@ -34,18 +34,28 @@ st.markdown("""
 
     p, div, span, label, h1, h2, h3, h4, h5, li, td, th { color: #1e293b !important; }
 
+    /* 사이드바 밝은 테마로 수정 */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%) !important;
+        background: #ffffff !important;
+        border-right: 1px solid #e2e8f0 !important;
     }
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] div,
-    [data-testid="stSidebar"] span, [data-testid="stSidebar"] label { color: #cbd5e1 !important; }
+    [data-testid="stSidebar"] span, [data-testid="stSidebar"] label { color: #334155 !important; font-weight: 500 !important; }
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3 { color: #f1f5f9 !important; }
+    [data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4, [data-testid="stSidebar"] h5 { color: #0f172a !important; font-weight: 800 !important; }
     [data-testid="stSidebar"] input {
-        background: rgba(255,255,255,0.1) !important;
-        border: 1px solid rgba(255,255,255,0.25) !important;
-        color: #f1f5f9 !important;
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
         border-radius: 10px !important;
+        font-weight: 600 !important;
+    }
+    [data-testid="stSidebar"] input:focus {
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 1px #3b82f6 !important;
+    }
+    [data-testid="stSidebar"] hr {
+        border-bottom-color: #e2e8f0 !important;
     }
 
     [data-testid="metric-container"] {
