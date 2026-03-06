@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v6 — 거대 자본(상어) 추적 및 슈퍼리치 자산 배분 완벽판
-Streamlit + yfinance | 현금 비중 레이더 + 백팀 안전자산 룰 + 폭락장 멘탈 케어
+HUNTER PROTOCOL v8 — 윌리엄 백팀 매뉴얼(금고 관리 & 리밸런싱) 완벽 적용판
+Streamlit + yfinance | 5~7개 금고 통제 룰 + 50:50 리밸런싱 시뮬레이터 적용
 """
 
 import streamlit as st
@@ -99,13 +99,13 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ─────────────────────────────────────────
-# 매수 원칙
+# 매수 원칙 (저점 분할매수 3단계 공식 적용)
 # ─────────────────────────────────────────
 STAGES = [
-    {"stage": 1, "label": "1단계: 정찰병 배치", "hunter_msg": "적의 움직임 포착 — 소량 선제 진입", "drop_threshold": 20, "pct": 0.15, "color": "#2563eb", "bg": "#eff6ff", "emoji": "🔵"},
-    {"stage": 2, "label": "2단계: 부대 전진",   "hunter_msg": "전장 확인 — 본격 포지션 구축", "drop_threshold": 35, "pct": 0.25, "color": "#059669", "bg": "#f0fdf4", "emoji": "🟢"},
-    {"stage": 3, "label": "3단계: 주력군 투입", "hunter_msg": "전면전 개시 — 핵심 물량 확보 (VIX 60 이상)", "drop_threshold": 50, "pct": 0.35, "color": "#d97706", "bg": "#fffbeb", "emoji": "🟡"},
-    {"stage": 4, "label": "4단계: 총력전 대비", "hunter_msg": "시스템 위기 — 최후의 유동성", "drop_threshold": 60, "pct": 0.25, "color": "#dc2626", "bg": "#fef2f2", "emoji": "🔴"},
+    {"stage": 1, "label": "1차 매수 (20%↓)", "hunter_msg": "최근 고점 대비 약 20% 하락 시", "drop_threshold": 20, "pct": 0.15, "color": "#2563eb", "bg": "#eff6ff", "emoji": "🔵"},
+    {"stage": 2, "label": "2차 매수 (30%↓)",   "hunter_msg": "약 30% 이상 추가 하락 시", "drop_threshold": 30, "pct": 0.25, "color": "#059669", "bg": "#f0fdf4", "emoji": "🟢"},
+    {"stage": 3, "label": "3차 매수 (패닉장)", "hunter_msg": "시장 전체 패닉 / 극단적 공포 (심리지표 20 이하)", "drop_threshold": 40, "pct": 0.35, "color": "#d97706", "bg": "#fffbeb", "emoji": "🟡"},
+    {"stage": 4, "label": "유동성 대기", "hunter_msg": "전대미문의 시스템 위기 현금 보루", "drop_threshold": 60, "pct": 0.25, "color": "#dc2626", "bg": "#fef2f2", "emoji": "🔴"},
 ]
 
 # ─────────────────────────────────────────
@@ -197,8 +197,13 @@ with st.sidebar:
     st.markdown("##### ⚖️ 주식 시드 목표 비중 (%)")
     white_ratio = st.slider("🛡 백팀(안전금고) 목표 비중", 0, 100, 50, 5)
     blue_ratio  = 100 - white_ratio
-    st.caption(f"🚀 청팀(세포분열) 목표 비중: **{blue_ratio}%**")
     
+    # 50:50 룰 및 리밸런싱 경고 로직
+    if white_ratio == 50:
+        st.success(f"✅ 완벽한 50:50 황금 밸런스 유지중")
+    else:
+        st.warning(f"💡 백팀 금고 해제 (리밸런싱) 모드 활성화\n(현재 백 {white_ratio} : 청 {blue_ratio})\n폭락장 평단 낮추기 전용")
+        
     st.divider()
     if st.button("🔄  데이터 새로고침", use_container_width=True, type="primary"):
         st.cache_data.clear()
@@ -219,15 +224,15 @@ with hc1:
 with hc2:
     st.metric("총 자산 (시드 + 현금)", fmt_usd(total_seed + extra_cash))
 
-with st.expander("🚨 폭락장 절대 금지 3대 원칙 & 매뉴얼 (클릭하여 숙지)", expanded=False):
+with st.expander("🚨 폭락장 절대 원칙 & 분미프 매뉴얼 (클릭하여 숙지)", expanded=False):
     st.markdown("""
-    - **절대 금지 1:** 가격 급락 시 공포에 휩쓸려 매도하는 행동 (가장 큰 손실의 원인)
-    - **절대 금지 2:** 시청률을 위한 자극적인 뉴스 헤드라인('역대급 붕괴' 등) 맹신하기
-    - **절대 금지 3:** 패닉에 빠진 주변 사람들의 공포 심리에 동조하여 판단력 흐리기
+    - **절대 금지:** 가격 급락 시 공포 매도, 자극적인 뉴스 맹신, 주변 패닉 동조 금지. 물건을 돈으로 사듯, 돈은 소중히 머무는 손님이다.
+    - **3년 보유 철칙:** 최소 3년은 보유하는 습관을 들여라. 단타로는 큰 부를 만들 수 없다. 분할매수는 시간이라는 무기와 함께 갈 때만 힘을 발휘한다.
     ---
-    1. **자산은 평생 백팀과 청팀 50:50 유지:** 백팀은 돈을 지켜줄 안전금고, 청팀은 돈을 불려줄 역노화 세포분열 공간이다.
-    2. **핵심 자산 룰:** 백팀 예산의 30%는 안전자산(국채/금)에, 청팀 예산의 30%는 양장우(양자/장수/우주)에 최우선 할당.
-    3. **10분할 분할매수 절대 원칙:** 저점에 도달할 때마다 해당 기업 예산의 1/10씩, **주 1회 원칙**으로 **최소 3개월간** 매수.
+    1. **자산은 평생 백팀과 청팀 50:50 유지:** 백팀은 돈을 지켜줄 안전금고, 청팀은 돈을 불려줄 역노화 세포분열 공간.
+    2. **백팀(금고) 5~7개 제한 룰:** 자신이 감당하고 기억 가능한 5~7개 이내의 금고(국채/달러 등 포함)만 유지하라. 그 이상은 물 새는 바가지다.
+    3. **궁극의 리밸런싱:** 하락장 저점 매수로 청팀 예산을 모두 소진하여 청:백 비율이 무너졌을 때(예: 청4:백6), 백팀 금고에서 자금을 빼서 다시 5:5를 맞추고 청팀 1군을 추가 매수해 평단을 극단적으로 낮춰라!
+    4. **10분할 분할매수 절대 원칙:** 1차(-20%), 2차(-30%), 3차(패닉) 도달 시마다 해당 기업 예산의 1/10씩, **주 1회 원칙**으로 최소 3개월간 매수.
     """)
 st.divider()
 
@@ -258,9 +263,9 @@ if macro_data["success"]:
     )
     r2.markdown(
         f"<div style='background:white;border-radius:16px;padding:20px;border:1px solid #e2e8f0;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04);'>"
-        f"<div style='color:#64748b;font-weight:700;font-size:0.9rem;margin-bottom:8px;'>공포 지수 (VIX) — 대중의 탐욕과 공포</div>"
+        f"<div style='color:#64748b;font-weight:700;font-size:0.9rem;margin-bottom:8px;'>공포 지수 (VIX) — 투자 심리지표</div>"
         f"<div style='color:#0f172a;font-weight:900;font-size:1.8rem;'>{vix_val:.2f}</div>"
-        f"<div style='color:{'#dc2626' if vix_val>=60 else ('#d97706' if vix_val>=30 else '#059669')};font-weight:700;font-size:1rem;margin-top:4px;'>{'위기 수준 (60 이상)' if vix_val>=60 else ('불안 수준 (30 이상)' if vix_val>=30 else '안정 수준')}</div>"
+        f"<div style='color:{'#dc2626' if vix_val>=40 else ('#d97706' if vix_val>=25 else '#059669')};font-weight:700;font-size:1rem;margin-top:4px;'>{'극단적 공포 수준' if vix_val>=40 else ('불안 수준' if vix_val>=25 else '안정 수준')}</div>"
         f"</div>", unsafe_allow_html=True
     )
 
@@ -484,7 +489,7 @@ def render_stock_card(ticker, data, stage, stock_drop, effective_drop, alloc_bud
                 "<div style='display:flex; justify-content:space-between; align-items:center;'>"
                 "<div><div style='font-weight:900;color:{c};font-size:1.3rem;'>{usd}</div>"
                 "<div style='color:#475569;font-size:0.85rem;margin-top:2px;'>{krw}</div></div>"
-                "<div style='text-align:right; font-size:0.75rem; color:#64748b; background:#f1f5f9; padding:6px 10px; border-radius:8px;'><b>매뉴얼: 주 1회 원칙</b><br>최소 3개월 분할</div>"
+                "<div style='text-align:right; font-size:0.75rem; color:#64748b; background:#f1f5f9; padding:6px 10px; border-radius:8px;'><b>기계적 매수: 주 1회 원칙</b><br>최소 3개월 분할</div>"
                 "</div>"
                 "</div>".format(c=stage['color'], basis=basis_text, usd="${:,.0f}".format(split_10_usd), krw="≈ ₩{:,.0f}".format(split_10_krw)), unsafe_allow_html=True)
         elif effective_drop is not None and effective_drop < 20:
@@ -506,6 +511,15 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
     stocks = st.session_state["{}_stocks".format(team_key)]
     is_white = team_key == "white"
     grad = ("linear-gradient(135deg,#eff6ff,#dbeafe)" if is_white else "linear-gradient(135deg,#f0fdf4,#dcfce7)")
+
+    # 🚨 백팀 갯수 통제 경고 (윌리엄 매뉴얼 원칙)
+    if is_white:
+        if len(stocks) > 7:
+            st.error("🚨 [매뉴얼 위반] 백팀(금고) 종목 수가 7개를 초과했습니다! 관리 가능한 5~7개 이내로 통제하지 않으면 물 새는 바가지가 됩니다.")
+        elif len(stocks) >= 5 and len(stocks) <= 7:
+            st.success("✅ [매뉴얼 준수] 완벽합니다. 금고의 수가 5~7개로 안전하게 관리되고 있습니다.")
+        elif len(stocks) > 0 and len(stocks) < 5:
+            st.info("💡 [매뉴얼 권장] 백팀 금고는 5~7개로 구성하는 것이 리스크 분산에 가장 이상적입니다.")
 
     st.markdown(
         "<div style='border-radius:20px;padding:18px 24px;margin-bottom:16px;background:{grad};border:2px solid {c}33;'>"
@@ -598,7 +612,7 @@ st.markdown("### 📊 전체 포트폴리오 집행 현황 요약표")
 all_rows = white_rows + blue_rows
 
 if all_rows:
-    STAGE_STYLE = {"1단계": ("🔵", "#1d4ed8", "#dbeafe", "#bfdbfe"), "2단계": ("🟢", "#065f46", "#d1fae5", "#a7f3d0"), "3단계": ("🟡", "#92400e", "#fef3c7", "#fde68a"), "4단계": ("🔴", "#991b1b", "#fee2e2", "#fecaca")}
+    STAGE_STYLE = {"1차 매수 (20%↓)": ("🔵", "#1d4ed8", "#dbeafe", "#bfdbfe"), "2차 매수 (30%↓)": ("🟢", "#065f46", "#d1fae5", "#a7f3d0"), "3차 매수 (패닉장)": ("🟡", "#92400e", "#fef3c7", "#fde68a"), "유동성 대기": ("🔴", "#991b1b", "#fee2e2", "#fecaca")}
     def drop_color(val_str):
         try:
             d = float(val_str.replace("%", ""))
