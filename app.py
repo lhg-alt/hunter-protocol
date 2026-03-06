@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v17 — 원스톱 종목 추가 & 실전 트래킹 완벽판
-Streamlit + yfinance | 사이드바 퀵 애드 + 인라인 평단/수량 동시 입력 적용
+HUNTER PROTOCOL v18 — 종목 팀 이동(리밸런싱 스왑) 기능 탑재판
+Streamlit + yfinance | 기존 평단/수량 유지하며 백팀↔청팀 자유 이동 기능 추가
 """
 
 import streamlit as st
@@ -139,23 +139,6 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ─────────────────────────────────────────
-# 매수 원칙 구성
-# ─────────────────────────────────────────
-STAGES_BASE = [
-    {"stage": 1, "label": "1차 매수 (20%↓)", "hunter_msg": "최근 고점 대비 약 20% 하락 시", "drop_threshold": 20, "pct": 0.15, "color": "#2563eb", "bg": "#eff6ff", "emoji": "🔵"},
-    {"stage": 2, "label": "2차 매수 (30%↓)",   "hunter_msg": "약 30% 이상 추가 하락 시", "drop_threshold": 30, "pct": 0.25, "color": "#059669", "bg": "#f0fdf4", "emoji": "🟢"},
-    {"stage": 3, "label": "3차 매수 (패닉장)", "hunter_msg": "시장 전체 패닉 / 극단적 공포", "drop_threshold": 40, "pct": 0.35, "color": "#d97706", "bg": "#fffbeb", "emoji": "🟡"},
-    {"stage": 4, "label": "유동성 대기", "hunter_msg": "전대미문의 시스템 위기 현금 보루", "drop_threshold": 60, "pct": 0.25, "color": "#dc2626", "bg": "#fef2f2", "emoji": "🔴"},
-]
-
-STAGES_MA = [
-    {"stage": 1, "label": "1차 (MA 200)", "hunter_msg": "장기 추세선 도달 (기관 테스팅)", "pct": 0.20, "color": "#2563eb", "bg": "#eff6ff", "emoji": "🔵"},
-    {"stage": 2, "label": "2차 (MA 240)", "hunter_msg": "연간 평균단가 붕괴 (본격 매집)", "pct": 0.25, "color": "#059669", "bg": "#f0fdf4", "emoji": "🟢"},
-    {"stage": 3, "label": "3차 (MA 365)", "hunter_msg": "심리적 마지노선 (Capitulation)", "pct": 0.30, "color": "#d97706", "bg": "#fffbeb", "emoji": "🟡"},
-    {"stage": 4, "label": "유동성 대기", "hunter_msg": "극단적 추가 하락 대비 탄약 보존", "pct": 0.25, "color": "#dc2626", "bg": "#fef2f2", "emoji": "🔴"},
-]
-
-# ─────────────────────────────────────────
 # 세션 상태 초기화 (JSON 데이터 로드)
 # ─────────────────────────────────────────
 saved_data = load_portfolio()
@@ -190,6 +173,23 @@ if "blue_stocks" not in st.session_state:
 
 if "show_add_white" not in st.session_state: st.session_state.show_add_white = False
 if "show_add_blue" not in st.session_state: st.session_state.show_add_blue = False
+
+# ─────────────────────────────────────────
+# 매수 원칙 구성
+# ─────────────────────────────────────────
+STAGES_BASE = [
+    {"stage": 1, "label": "1차 매수 (20%↓)", "hunter_msg": "최근 고점 대비 약 20% 하락 시", "drop_threshold": 20, "pct": 0.15, "color": "#2563eb", "bg": "#eff6ff", "emoji": "🔵"},
+    {"stage": 2, "label": "2차 매수 (30%↓)",   "hunter_msg": "약 30% 이상 추가 하락 시", "drop_threshold": 30, "pct": 0.25, "color": "#059669", "bg": "#f0fdf4", "emoji": "🟢"},
+    {"stage": 3, "label": "3차 매수 (패닉장)", "hunter_msg": "시장 전체 패닉 / 극단적 공포", "drop_threshold": 40, "pct": 0.35, "color": "#d97706", "bg": "#fffbeb", "emoji": "🟡"},
+    {"stage": 4, "label": "유동성 대기", "hunter_msg": "전대미문의 시스템 위기 현금 보루", "drop_threshold": 60, "pct": 0.25, "color": "#dc2626", "bg": "#fef2f2", "emoji": "🔴"},
+]
+
+STAGES_MA = [
+    {"stage": 1, "label": "1차 (MA 200)", "hunter_msg": "장기 추세선 도달 (기관 테스팅)", "pct": 0.20, "color": "#2563eb", "bg": "#eff6ff", "emoji": "🔵"},
+    {"stage": 2, "label": "2차 (MA 240)", "hunter_msg": "연간 평균단가 붕괴 (본격 매집)", "pct": 0.25, "color": "#059669", "bg": "#f0fdf4", "emoji": "🟢"},
+    {"stage": 3, "label": "3차 (MA 365)", "hunter_msg": "심리적 마지노선 (Capitulation)", "pct": 0.30, "color": "#d97706", "bg": "#fffbeb", "emoji": "🟡"},
+    {"stage": 4, "label": "유동성 대기", "hunter_msg": "극단적 추가 하락 대비 탄약 보존", "pct": 0.25, "color": "#dc2626", "bg": "#fef2f2", "emoji": "🔴"},
+]
 
 # ─────────────────────────────────────────
 # 데이터 패치 유틸리티
@@ -265,7 +265,7 @@ def fmt_usd(v): return "${:,.0f}".format(v)
 def fmt_krw(v): return "₩{:,.0f}".format(v)
 
 # ─────────────────────────────────────────
-# 사이드바 (투입 시드, 현금 설정 및 빠른 종목 추가)
+# 사이드바 (투입 시드 및 현금 설정)
 # ─────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🎯 HUNTER PROTOCOL")
@@ -289,7 +289,6 @@ with st.sidebar:
         
     st.divider()
     
-    # ⚡ 빠른 종목 추가 (사이드바 토글)
     with st.expander("⚡ 빠른 종목 추가 (Quick Add)", expanded=False):
         sb_team = st.selectbox("소속 팀 선택", ["🛡 백팀 (안전금고)", "🚀 청팀 (세포분열)"], label_visibility="collapsed")
         sb_tk = st.text_input("티커 (예: AAPL)", key="sb_tk_input")
@@ -309,11 +308,7 @@ with st.sidebar:
                 if tk_up not in existing:
                     added_type = "일반"
                     if sb_sp: added_type = "안전자산" if is_white else "특수"
-                    
-                    target_list.append({
-                        "ticker": tk_up, "type": added_type, 
-                        "avg_price": float(sb_avg), "shares": float(sb_sh)
-                    })
+                    target_list.append({"ticker": tk_up, "type": added_type, "avg_price": float(sb_avg), "shares": float(sb_sh)})
                     save_portfolio()
                     st.cache_data.clear()
                     st.rerun()
@@ -416,7 +411,7 @@ else:
 st.divider()
 
 # ─────────────────────────────────────────
-# 백그라운드 데이터 사전 계산 
+# 백그라운드 데이터 사전 계산
 # ─────────────────────────────────────────
 target_white_budget = total_seed * (white_ratio / 100)
 target_blue_budget  = total_seed * (blue_ratio  / 100)
@@ -530,7 +525,7 @@ with tc2:
 st.divider()
 
 # ─────────────────────────────────────────
-# 종목 카드 렌더 함수
+# 종목 카드 렌더 함수 (팀 이동 버튼 추가)
 # ─────────────────────────────────────────
 def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w, team_color, team_key, special_type, stock_dict, stock_idx, total_stocks):
     current = data["current"]
@@ -544,7 +539,7 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
     split_10_usd = stage_budget / 10 if stage else 0
     split_10_krw = split_10_usd * exchange_rate
 
-    # 🌟 사냥 신호 포착 시 카드 하이라이트 디자인 적용
+    # 사냥 신호 포착 시 카드 하이라이트
     if stage and stage["stage"] < 4:
         border_style = f"3px solid {stage['color']}"
         shadow_style = f"0 0 20px {stage['color']}66"
@@ -640,12 +635,14 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
             if is_ma_mode: st.info(f"현재 가격이 200{'주' if is_weekly_ma else '일'} 이동평균선 위에 있습니다. (관망 중)", icon="⏳")
             else: st.info(f"현재 적용 하락률 {effective_val:.1f}% — 20% 초과 시 매수 개시", icon="⏳")
 
+        # ── 순서 이동, 팀 스왑, 삭제 버튼 ──
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-        bc1, bc2, bc3, bc4 = st.columns([5, 1.3, 1.3, 1.5])
+        # 컬럼 5개 분할 (여백, 이전, 다음, 팀이동, 삭제)
+        bc1, bc2, bc3, bc4, bc5 = st.columns([2.5, 1.2, 1.2, 1.7, 1.2])
         with bc2:
             if stock_idx > 0:
                 st.markdown('<div class="move-btn">', unsafe_allow_html=True)
-                if st.button("◀ 이전으로", key=f"up_{team_key}_{ticker}", use_container_width=True):
+                if st.button("◀ 이전", key=f"up_{team_key}_{ticker}", use_container_width=True):
                     lst = st.session_state[f"{team_key}_stocks"]
                     lst[stock_idx - 1], lst[stock_idx] = lst[stock_idx], lst[stock_idx - 1]
                     save_portfolio()
@@ -654,15 +651,30 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
         with bc3:
             if stock_idx < total_stocks - 1:
                 st.markdown('<div class="move-btn">', unsafe_allow_html=True)
-                if st.button("다음으로 ▶", key=f"down_{team_key}_{ticker}", use_container_width=True):
+                if st.button("다음 ▶", key=f"down_{team_key}_{ticker}", use_container_width=True):
                     lst = st.session_state[f"{team_key}_stocks"]
                     lst[stock_idx + 1], lst[stock_idx] = lst[stock_idx], lst[stock_idx + 1]
                     save_portfolio()
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
         with bc4:
+            st.markdown('<div class="move-btn">', unsafe_allow_html=True)
+            swap_label = "🔁 청팀으로" if team_key == "white" else "🔁 백팀으로"
+            target_key = "blue" if team_key == "white" else "white"
+            if st.button(swap_label, key=f"swap_{team_key}_{ticker}", use_container_width=True):
+                # 기존 팀에서 뽑아내기
+                stock_to_move = st.session_state[f"{team_key}_stocks"].pop(stock_idx)
+                # 이동 시 특수 룰(안전자산/1군)은 충돌 방지를 위해 일반으로 자동 초기화
+                stock_to_move["type"] = "일반"
+                # 타겟 팀에 넣기
+                st.session_state[f"{target_key}_stocks"].append(stock_to_move)
+                save_portfolio()
+                st.cache_data.clear()
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with bc5:
             st.markdown('<div class="del-btn">', unsafe_allow_html=True)
-            if st.button("🗑 종목 삭제", key=f"del_{team_key}_{ticker}", use_container_width=True):
+            if st.button("🗑 삭제", key=f"del_{team_key}_{ticker}", use_container_width=True):
                 st.session_state[f"{team_key}_stocks"].pop(stock_idx)
                 st.cache_data.clear()
                 save_portfolio()
@@ -747,7 +759,6 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
                     "1회 권장(KRW)": f"₩{buy_krw_1_split:,.0f}" if buy_usd_1_split > 0 else "—",
                 })
 
-    # ── 인라인 종목 추가 UI (상세 입력 폼 확장) ──
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
     add_key = f"show_add_{team_key}"
     if not st.session_state[add_key]:
