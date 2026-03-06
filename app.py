@@ -1,6 +1,6 @@
 """
 HUNTER PROTOCOL — 재민의 자동 저점 매수 계산기
-Streamlit + yfinance | 현금 비중 + 블루팀 15% 전략 섹터 + 단계별 투자금 미리보기 추가
+Streamlit + yfinance | 현금 비중 직접 입력 + 블루팀 15% 전략 섹터 + 단계별 투자금 미리보기
 """
 
 import streamlit as st
@@ -169,7 +169,7 @@ STAGES = [
 ]
 
 # ─────────────────────────────────────────
-# 세션 상태 (딕셔너리 리스트 구조로 변경)
+# 세션 상태 (딕셔너리 리스트 구조)
 # ─────────────────────────────────────────
 if "white_stocks" not in st.session_state:
     st.session_state.white_stocks = [
@@ -218,7 +218,7 @@ def fmt_usd(v): return "${:,.0f}".format(v)
 def fmt_krw(v): return "₩{:,.0f}".format(v)
 
 # ─────────────────────────────────────────
-# 사이드바 (현금 비중 3분할)
+# 사이드바 (화이트, 블루, 현금 비중 직접 입력)
 # ─────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🎯 HUNTER PROTOCOL")
@@ -228,11 +228,20 @@ with st.sidebar:
     total_seed    = st.number_input("전체 시드 (USD $)", min_value=1000, max_value=10_000_000, value=100_000, step=1000, format="%d")
     exchange_rate = st.number_input("환율 (USD→KRW)",    min_value=1000, max_value=2000,        value=1380,   step=10)
     
-    white_ratio = st.slider("🛡 화이트 팀 비중 (%)", 0, 100, 40, 5)
-    blue_ratio  = st.slider("🚀 블루 팀 비중 (%)", 0, 100 - white_ratio, 40, 5)
-    cash_ratio  = 100 - white_ratio - blue_ratio
+    st.markdown("##### ⚖️ 팀별 비중 직접 설정 (%)")
+    rc1, rc2, rc3 = st.columns(3)
+    with rc1:
+        white_ratio = st.number_input("🛡 화이트", min_value=0, max_value=100, value=40, step=5)
+    with rc2:
+        blue_ratio  = st.number_input("🚀 블루", min_value=0, max_value=100, value=45, step=5)
+    with rc3:
+        cash_ratio  = st.number_input("🏦 현금", min_value=0, max_value=100, value=15, step=5)
     
-    st.info(f"🏦 현금(대기 자금) 비중: **{cash_ratio}%**")
+    total_ratio = white_ratio + blue_ratio + cash_ratio
+    if total_ratio != 100:
+        st.error(f"⚠️ 합계: {total_ratio}% (100%로 맞춰주세요)")
+    else:
+        st.success("✅ 비중 설정 완료")
     
     st.divider()
     if st.button("🔄  데이터 새로고침", use_container_width=True, type="primary"):
@@ -290,7 +299,7 @@ st.divider()
 
 
 # ─────────────────────────────────────────
-# 종목 카드 렌더 (HTML 없이 Streamlit 네이티브 혼합)
+# 종목 카드 렌더
 # ─────────────────────────────────────────
 def render_stock_card(ticker, data, stage, drop, buy_usd, buy_krw, alloc_budget, alloc_w, team_color, team_key, is_special=False):
     current = data["current"]
@@ -499,7 +508,6 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
         ac1, ac2, ac3 = st.columns([3, 1, 1])
         with ac1:
             new_tk = st.text_input("티커", placeholder="예: TSLA, AMZN...", key="inp_{}".format(team_key), label_visibility="collapsed")
-            # 블루팀일 때만 양자/장수/우주 특수 섹터 체크 표시
             is_special_checked = False
             if not is_white:
                 is_special_checked = st.checkbox("✨ 전략 섹터 (양자컴퓨팅, 장수과학, 우주경제)", key="chk_{}".format(team_key))
