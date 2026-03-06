@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v5 — 윌리엄 분미프 매뉴얼 완벽 적용판
-Streamlit + yfinance | S&P500 듀얼 트리거 + 10분할 매수 시스템 + 자산 분리
+HUNTER PROTOCOL v6 — 거대 자본(상어) 추적 및 슈퍼리치 자산 배분 완벽판
+Streamlit + yfinance | 현금 비중 레이더 + 백팀 안전자산 룰 + 폭락장 멘탈 케어
 """
 
 import streamlit as st
@@ -13,7 +13,7 @@ import time
 # 페이지 설정
 # ─────────────────────────────────────────
 st.set_page_config(
-    page_title="HUNTER PROTOCOL | 분미프",
+    page_title="HUNTER PROTOCOL | 부의 대이동",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -67,7 +67,7 @@ st.markdown("""
 
     .hunter-title { font-family: 'IBM Plex Mono', monospace !important; font-weight: 700; font-size: 2rem; background: linear-gradient(135deg, #2563eb, #0ea5e9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -1px; }
 
-    /* 라디오 버튼 커스텀 (트리거 선택용) */
+    /* 라디오 버튼 커스텀 */
     div.row-widget.stRadio > div { background: white; padding: 10px 20px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; gap: 20px; }
 </style>
 """, unsafe_allow_html=True)
@@ -99,7 +99,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ─────────────────────────────────────────
-# 매수 원칙 및 지수 트리거
+# 매수 원칙
 # ─────────────────────────────────────────
 STAGES = [
     {"stage": 1, "label": "1단계: 정찰병 배치", "hunter_msg": "적의 움직임 포착 — 소량 선제 진입", "drop_threshold": 20, "pct": 0.15, "color": "#2563eb", "bg": "#eff6ff", "emoji": "🔵"},
@@ -113,13 +113,13 @@ STAGES = [
 # ─────────────────────────────────────────
 if "white_stocks" not in st.session_state:
     st.session_state.white_stocks = [
-        {"ticker": "NEE", "type": "일반"}, {"ticker": "CEG", "type": "일반"},
-        {"ticker": "WEC", "type": "일반"}, {"ticker": "SO", "type": "일반"}
+        {"ticker": "GLD", "type": "안전자산"}, {"ticker": "TLT", "type": "안전자산"}, # 장기 국채, 금
+        {"ticker": "NEE", "type": "일반"}, {"ticker": "CEG", "type": "일반"}
     ]
 if "blue_stocks" not in st.session_state:
     st.session_state.blue_stocks = [
         {"ticker": "CRWD", "type": "일반"}, {"ticker": "PLTR", "type": "일반"},
-        {"ticker": "NVDA", "type": "일반"}, {"ticker": "IONQ", "type": "특수"}
+        {"ticker": "NVDA", "type": "일반"}, {"ticker": "IONQ", "type": "특수"} # 양자/장수/우주
     ]
 if "show_add_white" not in st.session_state: st.session_state.show_add_white = False
 if "show_add_blue" not in st.session_state: st.session_state.show_add_blue = False
@@ -181,19 +181,20 @@ def fmt_usd(v): return "${:,.0f}".format(v)
 def fmt_krw(v): return "₩{:,.0f}".format(v)
 
 # ─────────────────────────────────────────
-# 사이드바 (투입 시드 설정)
+# 사이드바 (투입 시드 및 현금 설정)
 # ─────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🎯 HUNTER PROTOCOL")
-    st.caption("분할매수! 미래섹터! 프레임 탈출!")
+    st.caption("거대 자본의 흐름을 읽는 어군탐지기")
     st.divider()
     
     st.markdown("#### 💰 투자 목표(Target) 세팅")
-    total_seed    = st.number_input("전체 가용 시드 (USD $)", min_value=1000, max_value=10_000_000, value=100_000, step=1000, format="%d", help="시장에 최종적으로 투입할 전체 금액")
+    total_seed    = st.number_input("전체 가용 시드 (USD $)", min_value=1000, max_value=10_000_000, value=100_000, step=1000, format="%d", help="시장에 최종적으로 투입할 백팀/청팀 전체 금액")
+    extra_cash    = st.number_input("여유 현금 보유액 (USD $)", min_value=0, max_value=10_000_000, value=30_000, step=1000, format="%d", help="투자와 별개로 보유 중인 최후의 보루 (비상금)")
     exchange_rate = st.number_input("환율 (USD→KRW)", min_value=1000, max_value=2000, value=1380, step=10)
     
     st.divider()
-    st.markdown("##### ⚖️ 팀별 목표 비중 (Target %)")
+    st.markdown("##### ⚖️ 주식 시드 목표 비중 (%)")
     white_ratio = st.slider("🛡 백팀(안전금고) 목표 비중", 0, 100, 50, 5)
     blue_ratio  = 100 - white_ratio
     st.caption(f"🚀 청팀(세포분열) 목표 비중: **{blue_ratio}%**")
@@ -209,22 +210,24 @@ with st.sidebar:
         st.rerun()
 
 # ─────────────────────────────────────────
-# 메인 헤더 및 분미프 매뉴얼 요약
+# 메인 헤더 및 폭락장 멘탈 케어 요약
 # ─────────────────────────────────────────
 hc1, hc2 = st.columns([3, 1])
 with hc1:
     st.markdown('<p class="hunter-title">🎯 HUNTER PROTOCOL</p>', unsafe_allow_html=True)
-    st.markdown("재민의 퀀트 대시보드 — **거대 자본(상어)을 어군탐지기로 써라!**")
+    st.markdown("재민의 퀀트 대시보드 — **폭락장의 본질은 부의 대이동이다!**")
 with hc2:
-    st.metric("가용 시드 총액", fmt_usd(total_seed))
+    st.metric("총 자산 (시드 + 현금)", fmt_usd(total_seed + extra_cash))
 
-with st.expander("📜 윌리엄의 분미프 핵심 매뉴얼 요약 (클릭하여 읽기)", expanded=False):
+with st.expander("🚨 폭락장 절대 금지 3대 원칙 & 매뉴얼 (클릭하여 숙지)", expanded=False):
     st.markdown("""
-    1. **자산은 평생 백팀과 청팀 50:50 유지:** 백팀은 돈을 지켜줄 금고, 청팀은 돈을 불려줄 세포분열 공간이다.
-    2. **수익의 재배치:** 청팀에서 발생한 수익은 즉시 백팀(안전금고)으로 보관한다.
-    3. **청팀 1군(양장우) 30%룰:** 양자컴퓨터, 장수과학, 우주경제 핵심 대장주에 청팀 예산의 30%(전체의 15%)를 최우선 할당한다.
-    4. **10분할 분할매수 절대 원칙:** 한 기업이 저점에 올 때마다 해당 기업 예산의 1/10씩, **주 1회 원칙**으로 **최소 3개월간** 분할 매수한다.
-    5. **10~20개 종목 제한:** 스스로 컨트롤 가능한 범위를 넘어선 오만을 버려라. 물 새는 바가지가 된다.
+    - **절대 금지 1:** 가격 급락 시 공포에 휩쓸려 매도하는 행동 (가장 큰 손실의 원인)
+    - **절대 금지 2:** 시청률을 위한 자극적인 뉴스 헤드라인('역대급 붕괴' 등) 맹신하기
+    - **절대 금지 3:** 패닉에 빠진 주변 사람들의 공포 심리에 동조하여 판단력 흐리기
+    ---
+    1. **자산은 평생 백팀과 청팀 50:50 유지:** 백팀은 돈을 지켜줄 안전금고, 청팀은 돈을 불려줄 역노화 세포분열 공간이다.
+    2. **핵심 자산 룰:** 백팀 예산의 30%는 안전자산(국채/금)에, 청팀 예산의 30%는 양장우(양자/장수/우주)에 최우선 할당.
+    3. **10분할 분할매수 절대 원칙:** 저점에 도달할 때마다 해당 기업 예산의 1/10씩, **주 1회 원칙**으로 **최소 3개월간** 매수.
     """)
 st.divider()
 
@@ -236,7 +239,7 @@ market_max_drop = 0
 if macro_data["success"]:
     spy_drop = macro_data["SPY"]["drop"]
     vix_val = macro_data["VIX"]["current"]
-    market_max_drop = spy_drop  # 시장 지수는 S&P 500 기준 단일화
+    market_max_drop = spy_drop
     
     idx_alert = "🟢 시장 정상"
     if spy_drop >= 40: idx_alert = "🔴 금융위기 (Capitulation)"
@@ -288,14 +291,25 @@ current_blue_invested = 0
 stock_cache = {}
 allocations = {"white": {}, "blue": {}}
 
-# 화이트팀 계산
+# 화이트팀 계산 (안전자산 30% 룰 반영)
 w_stocks = st.session_state.white_stocks
 if w_stocks:
-    eq_w = 100 / len(w_stocks)
-    alloc_amt = target_white_budget * (eq_w / 100)
+    safe_stocks = [s for s in w_stocks if s.get("type") == "안전자산"]
+    normal_w_stocks = [s for s in w_stocks if s.get("type") != "안전자산"]
+    sf_total_w = 30 if safe_stocks and normal_w_stocks else (100 if safe_stocks else 0)
+    nm_w_total_w = 70 if safe_stocks and normal_w_stocks else (100 if normal_w_stocks else 0)
+
+    for s in safe_stocks:
+        tk = s["ticker"]
+        w = sf_total_w / len(safe_stocks)
+        allocations["white"][tk] = {"weight": w, "budget": target_white_budget * (w / 100)}
+    for s in normal_w_stocks:
+        tk = s["ticker"]
+        w = nm_w_total_w / len(normal_w_stocks)
+        allocations["white"][tk] = {"weight": w, "budget": target_white_budget * (w / 100)}
+
     for s in w_stocks:
         tk = s["ticker"]
-        allocations["white"][tk] = {"weight": eq_w, "budget": alloc_amt}
         data = fetch_stock_data(tk)
         stock_cache[tk] = data
         if data["success"] and data["current"] and data["ath"]:
@@ -303,15 +317,14 @@ if w_stocks:
             effective_drop = market_max_drop if is_index_mode else stock_drop
             stage = get_stage(effective_drop)
             if stage and stage["stage"] < 4:
-                # 현재 단계 권장 누적 매수금액 (보수적 집계)
-                current_white_invested += alloc_amt * stage["pct"]
+                current_white_invested += allocations["white"][tk]["budget"] * stage["pct"]
 
-# 블루팀 계산 (15% 1군 양장우 포함)
+# 블루팀 계산 (양장우 특수섹터 30% 룰 반영)
 b_stocks = st.session_state.blue_stocks
 if b_stocks:
     special_stocks = [s for s in b_stocks if s.get("type") == "특수"]
     normal_stocks  = [s for s in b_stocks if s.get("type") != "특수"]
-    sp_total_w = 30 if special_stocks and normal_stocks else (100 if special_stocks else 0) # 청팀 예산의 30% = 전체 시드의 15%
+    sp_total_w = 30 if special_stocks and normal_stocks else (100 if special_stocks else 0)
     nm_total_w = 70 if special_stocks and normal_stocks else (100 if normal_stocks else 0)
     
     for s in special_stocks:
@@ -336,6 +349,20 @@ if b_stocks:
 
 current_total_invested = current_white_invested + current_blue_invested
 current_cash_remaining = total_seed - current_total_invested
+
+# 현금 건전성 로직
+total_assets = total_seed + extra_cash
+total_actual_cash = current_cash_remaining + extra_cash
+cash_ratio_pct = (total_actual_cash / total_assets) * 100 if total_assets > 0 else 0
+
+cash_status_msg = "🟢 정상 (안정적인 20~30% 확보)"
+cash_status_color = "#059669"
+if cash_ratio_pct >= 40:
+    cash_status_msg = "🔵 위기 대비 완벽 (과열/위기장 40~50% 이상)"
+    cash_status_color = "#2563eb"
+elif cash_ratio_pct < 20:
+    cash_status_msg = "🔴 현금 부족 (20% 미만, 리스크 주의)"
+    cash_status_color = "#dc2626"
 
 # ─────────────────────────────────────────
 # 자산 분리 대시보드 (Target vs Current)
@@ -364,14 +391,13 @@ with tc1:
     )
 
 with tc2:
-    cur_w_pct = (current_white_invested / total_seed) * 100 if total_seed > 0 else 0
-    cur_b_pct = (current_blue_invested / total_seed) * 100 if total_seed > 0 else 0
-    cur_c_pct = (current_cash_remaining / total_seed) * 100 if total_seed > 0 else 0
+    cur_w_pct = (current_white_invested / total_assets) * 100 if total_assets > 0 else 0
+    cur_b_pct = (current_blue_invested / total_assets) * 100 if total_assets > 0 else 0
     
     st.markdown(
-        f"<div style='background:white;border-radius:20px;padding:24px;border:2px solid #3b82f6;box-shadow:0 4px 12px rgba(59,130,246,0.15);height:100%;'>"
-        f"<div style='color:#1e293b;font-weight:900;font-size:1.1rem;margin-bottom:4px;'>📊 현재 집행 상태 (Current Status)</div>"
-        f"<div style='color:#64748b;font-size:0.8rem;margin-bottom:16px;'>매수 신호에 의해 현재 시드가 시장에 투입된 실제 비율</div>"
+        f"<div style='background:white;border-radius:20px;padding:24px;border:2px solid {cash_status_color};box-shadow:0 4px 12px rgba(0,0,0,0.15);height:100%;'>"
+        f"<div style='color:#1e293b;font-weight:900;font-size:1.1rem;margin-bottom:4px;'>📊 현재 집행 상태 및 현금 건전성</div>"
+        f"<div style='color:{cash_status_color};font-weight:800;font-size:0.85rem;margin-bottom:16px;'>{cash_status_msg}</div>"
         f"<div style='display:flex;justify-content:space-between;margin-bottom:6px;'>"
         f"<div><span style='color:#2563eb;font-weight:800;'>🛡 집행된 백팀</span> <span style='font-weight:700;'>{cur_w_pct:.1f}%</span></div>"
         f"<div style='font-weight:800;color:#0f172a;'>{fmt_usd(current_white_invested)}</div>"
@@ -381,12 +407,13 @@ with tc2:
         f"<div style='font-weight:800;color:#0f172a;'>{fmt_usd(current_blue_invested)}</div>"
         f"</div>"
         f"<div style='display:flex;justify-content:space-between;margin-bottom:16px;'>"
-        f"<div><span style='color:#64748b;font-weight:800;'>🏦 대기 현금(보루)</span> <span style='font-weight:700;'>{cur_c_pct:.1f}%</span></div>"
-        f"<div style='font-weight:800;color:#0f172a;'>{fmt_usd(current_cash_remaining)}</div>"
+        f"<div><span style='color:#64748b;font-weight:800;'>🏦 총 보유 현금 (미집행+여유분)</span> <span style='font-weight:700;'>{cash_ratio_pct:.1f}%</span></div>"
+        f"<div style='font-weight:800;color:#0f172a;'>{fmt_usd(total_actual_cash)}</div>"
         f"</div>"
         f"<div style='width:100%;height:12px;border-radius:6px;display:flex;overflow:hidden;background:#e2e8f0;'>"
         f"<div style='width:{cur_w_pct}%;background:#3b82f6;'></div>"
         f"<div style='width:{cur_b_pct}%;background:#10b981;'></div>"
+        f"<div style='width:{cash_ratio_pct}%;background:#cbd5e1;'></div>"
         f"</div>"
         f"</div>", unsafe_allow_html=True
     )
@@ -394,14 +421,14 @@ with tc2:
 st.divider()
 
 # ─────────────────────────────────────────
-# 종목 카드 및 팀 렌더 함수 (10분할 로직 추가)
+# 종목 카드 및 팀 렌더 함수 (10분할 로직 유지)
 # ─────────────────────────────────────────
-def render_stock_card(ticker, data, stage, stock_drop, effective_drop, alloc_budget, alloc_w, team_color, team_key, is_special=False, is_idx_mode=False):
+def render_stock_card(ticker, data, stage, stock_drop, effective_drop, alloc_budget, alloc_w, team_color, team_key, special_type=None, is_idx_mode=False):
     current = data["current"]
     ath     = data["ath"]
     ath_str = "${:,.2f}".format(ath) if ath else "—"
 
-    # 매뉴얼 10분할 매수 로직 (종목당 총 예산의 1/10)
+    # 10분할 매수 로직
     split_10_usd = alloc_budget / 10
     split_10_krw = split_10_usd * exchange_rate
 
@@ -435,7 +462,12 @@ def render_stock_card(ticker, data, stage, stock_drop, effective_drop, alloc_bud
                 ), unsafe_allow_html=True)
 
         with info_c2:
-            special_badge = "<div style='display:inline-block; padding:2px 6px; background:#e0e7ff; color:#4f46e5; border-radius:4px; font-size:0.65rem; margin-bottom:4px; font-weight:700;'>✨ 1군 전략 섹터 (양·장·우)</div><br>" if is_special else ""
+            special_badge = ""
+            if special_type == "안전자산":
+                special_badge = "<div style='display:inline-block; padding:2px 6px; background:#e0e7ff; color:#4f46e5; border-radius:4px; font-size:0.65rem; margin-bottom:4px; font-weight:700;'>✨ 안전자산 헷지 (백팀 30% 할당)</div><br>"
+            elif special_type == "특수":
+                special_badge = "<div style='display:inline-block; padding:2px 6px; background:#e0e7ff; color:#4f46e5; border-radius:4px; font-size:0.65rem; margin-bottom:4px; font-weight:700;'>✨ 1군 전략 섹터 (청팀 30% 할당)</div><br>"
+                
             st.markdown(
                 "<div style='background:white;border-radius:14px;padding:14px 16px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.04);height:100%;'>"
                 f"{special_badge}"
@@ -444,7 +476,6 @@ def render_stock_card(ticker, data, stage, stock_drop, effective_drop, alloc_bud
                 "<div style='color:#64748b;font-size:0.7rem;margin-bottom:2px;'>52주 ATH</div>"
                 "<div style='font-weight:700;color:#0f172a;font-size:1rem;'>{ath}</div></div>".format(w=alloc_w, budget=alloc_budget, ath=ath_str), unsafe_allow_html=True)
 
-        # 10분할 매수 권장액 블록 노출
         if stage and stage["stage"] < 4:
             basis_text = "S&P 500 시장 지수 하락분" if is_idx_mode else "개별 종목 고점 하락분"
             st.markdown(
@@ -490,7 +521,7 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
 
         for col, stock_dict in zip(cols, batch):
             ticker = stock_dict["ticker"]
-            is_special = stock_dict.get("type") == "특수"
+            sp_type = stock_dict.get("type")
             alloc_data = allocations[team_key][ticker]
             data = stock_cache.get(ticker, {"success": False})
             
@@ -504,12 +535,10 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
                 effective_drop = market_max_drop if is_index_mode else stock_drop
                 
                 stage = get_stage(effective_drop) if effective_drop is not None else None
-                
-                # 테이블 요약용 권장 매수금(1회 분할 분량) 산출
                 buy_usd_1_split = alloc_data["budget"] / 10 if (stage and stage["stage"] < 4) else 0
                 buy_krw_1_split = buy_usd_1_split * exchange_rate
 
-                render_stock_card(ticker, data, stage, stock_drop, effective_drop, alloc_data["budget"], alloc_data["weight"], team_color, team_key, is_special, is_index_mode)
+                render_stock_card(ticker, data, stage, stock_drop, effective_drop, alloc_data["budget"], alloc_data["weight"], team_color, team_key, sp_type, is_index_mode)
 
                 summary_rows.append({
                     "팀": "🛡 백팀" if is_white else "🚀 청팀", "티커": ticker, "종목명": data["name"][:18],
@@ -518,7 +547,6 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
                     "1회 분할매수(USD)": "${:,.0f}".format(buy_usd_1_split) if buy_usd_1_split > 0 else "—", "1회 분할매수(KRW)": "₩{:,.0f}".format(buy_krw_1_split) if buy_usd_1_split > 0 else "—",
                 })
 
-    # 종목 추가 UI
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
     add_key = "show_add_{}".format(team_key)
     if not st.session_state[add_key]:
@@ -530,15 +558,21 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
         st.markdown("<div style='background:white;border-radius:16px;padding:16px 20px;border:2px dashed {c}88;margin-bottom:8px;'><span style='font-weight:700;color:{c};font-size:0.95rem;'>{emoji} 새 종목 티커 입력</span></div>".format(c=team_color, emoji=team_emoji), unsafe_allow_html=True)
         ac1, ac2, ac3 = st.columns([3, 1, 1])
         with ac1:
-            new_tk = st.text_input("티커", placeholder="예: TSLA, AMZN...", key="inp_{}".format(team_key), label_visibility="collapsed")
+            new_tk = st.text_input("티커", placeholder="예: TSLA, AMZN, TLT...", key="inp_{}".format(team_key), label_visibility="collapsed")
             is_special_checked = False
-            if not is_white: is_special_checked = st.checkbox("✨ 1군 전략 섹터 (양자/장수/우주)", key="chk_{}".format(team_key))
+            if is_white:
+                is_special_checked = st.checkbox("✨ 안전자산 (국채/금 등)", key="chk_sf_{}".format(team_key))
+            else:
+                is_special_checked = st.checkbox("✨ 1군 전략 섹터 (양자/장수/우주)", key="chk_sp_{}".format(team_key))
         with ac2:
             if st.button("✅  추가", key="confirm_{}".format(team_key), type="primary", use_container_width=True):
                 tk = new_tk.strip().upper()
                 existing = [s["ticker"] for s in st.session_state["{}_stocks".format(team_key)]]
                 if tk and tk not in existing:
-                    st.session_state["{}_stocks".format(team_key)].append({"ticker": tk, "type": "특수" if is_special_checked else "일반"})
+                    added_type = "일반"
+                    if is_special_checked:
+                        added_type = "안전자산" if is_white else "특수"
+                    st.session_state["{}_stocks".format(team_key)].append({"ticker": tk, "type": added_type})
                     st.cache_data.clear(); st.session_state[add_key] = False; st.rerun()
                 elif tk: st.warning("{} 는 이미 등록된 종목입니다.".format(tk))
         with ac3:
