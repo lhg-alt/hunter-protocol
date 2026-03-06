@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v3 — 거시 경제 레이더 및 목표/현재 자산 분리 대시보드
-Streamlit + yfinance | 시장 지수(S&P500, Nasdaq, VIX) 연동 + 자산 상태 분리 + 밝은 사이드바
+HUNTER PROTOCOL v4 — 듀얼 트리거 시스템
+Streamlit + yfinance | 전고점(ATH) vs 시장지수(Index) 전환 스위치 탑재 완벽판
 """
 
 import streamlit as st
@@ -66,6 +66,9 @@ st.markdown("""
     .stDataFrame tbody tr td { color: #1e293b !important; font-size: 0.88rem !important; padding: 10px 16px !important; }
 
     .hunter-title { font-family: 'IBM Plex Mono', monospace !important; font-weight: 700; font-size: 2rem; background: linear-gradient(135deg, #2563eb, #0ea5e9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -1px; }
+
+    /* 라디오 버튼 커스텀 (트리거 선택용) */
+    div.row-widget.stRadio > div { background: white; padding: 10px 20px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; gap: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -104,13 +107,6 @@ STAGES = [
     {"stage": 3, "label": "3단계: 주력군 투입", "hunter_msg": "전면전 개시 — 핵심 물량 확보 (VIX 60 이상)", "drop_threshold": 50, "pct": 0.35, "color": "#d97706", "bg": "#fffbeb", "emoji": "🟡"},
     {"stage": 4, "label": "4단계: 총력전 대비", "hunter_msg": "시스템 위기 — 최후의 유동성", "drop_threshold": 60, "pct": 0.25, "color": "#dc2626", "bg": "#fef2f2", "emoji": "🔴"},
 ]
-
-MACRO_TRIGGERS = {
-    1: {"desc": "일반적인 조정", "idx_drop": 10},
-    2: {"desc": "코로나 초입 공포", "idx_drop": 25},
-    3: {"desc": "대공황/금융위기", "idx_drop": 40, "vix": 60},
-    4: {"desc": "전대미문", "idx_drop": 50}
-}
 
 # ─────────────────────────────────────────
 # 세션 상태
@@ -216,63 +212,6 @@ with st.sidebar:
         st.rerun()
 
 # ─────────────────────────────────────────
-# 백그라운드 데이터 사전 계산 (Current Status 파악용)
-# ─────────────────────────────────────────
-target_white_budget = total_seed * (white_ratio / 100)
-target_blue_budget  = total_seed * (blue_ratio  / 100)
-
-current_white_invested = 0
-current_blue_invested = 0
-stock_cache = {}
-allocations = {"white": {}, "blue": {}}
-
-# 화이트팀 사전 계산
-w_stocks = st.session_state.white_stocks
-if w_stocks:
-    eq_w = 100 / len(w_stocks)
-    alloc_amt = target_white_budget * (eq_w / 100)
-    for s in w_stocks:
-        tk = s["ticker"]
-        allocations["white"][tk] = {"weight": eq_w, "budget": alloc_amt}
-        data = fetch_stock_data(tk)
-        stock_cache[tk] = data
-        if data["success"] and data["current"] and data["ath"]:
-            drop = ((data["ath"] - data["current"]) / data["ath"] * 100)
-            stage = get_stage(drop)
-            if stage and stage["stage"] < 4:
-                current_white_invested += alloc_amt * stage["pct"]
-
-# 블루팀 사전 계산 (15% 전략 섹터 포함)
-b_stocks = st.session_state.blue_stocks
-if b_stocks:
-    special_stocks = [s for s in b_stocks if s.get("type") == "특수"]
-    normal_stocks  = [s for s in b_stocks if s.get("type") != "특수"]
-    sp_total_w = 15 if special_stocks and normal_stocks else (100 if special_stocks else 0)
-    nm_total_w = 85 if special_stocks and normal_stocks else (100 if normal_stocks else 0)
-    
-    for s in special_stocks:
-        tk = s["ticker"]
-        w = sp_total_w / len(special_stocks)
-        allocations["blue"][tk] = {"weight": w, "budget": target_blue_budget * (w / 100)}
-    for s in normal_stocks:
-        tk = s["ticker"]
-        w = nm_total_w / len(normal_stocks)
-        allocations["blue"][tk] = {"weight": w, "budget": target_blue_budget * (w / 100)}
-        
-    for s in b_stocks:
-        tk = s["ticker"]
-        data = fetch_stock_data(tk)
-        stock_cache[tk] = data
-        if data["success"] and data["current"] and data["ath"]:
-            drop = ((data["ath"] - data["current"]) / data["ath"] * 100)
-            stage = get_stage(drop)
-            if stage and stage["stage"] < 4:
-                current_blue_invested += allocations["blue"][tk]["budget"] * stage["pct"]
-
-current_total_invested = current_white_invested + current_blue_invested
-current_cash_remaining = total_seed - current_total_invested
-
-# ─────────────────────────────────────────
 # 메인 헤더 및 시장 레이더
 # ─────────────────────────────────────────
 hc1, hc2 = st.columns([3, 1])
@@ -284,10 +223,12 @@ with hc2:
 st.divider()
 
 macro_data = fetch_macro_data()
+market_max_drop = 0
 if macro_data["success"]:
     spy_drop = macro_data["SPY"]["drop"]
     qqq_drop = macro_data["QQQ"]["drop"]
     vix_val = macro_data["VIX"]["current"]
+    market_max_drop = max(spy_drop, qqq_drop)
     
     idx_alert = "🟢 시장 정상"
     if spy_drop >= 40 or qqq_drop >= 40: idx_alert = "🔴 금융위기 (Capitulation)"
@@ -319,6 +260,84 @@ if macro_data["success"]:
         f"</div>", unsafe_allow_html=True
     )
 st.divider()
+
+# ─────────────────────────────────────────
+# 트리거 전환 스위치 (ATH vs Index)
+# ─────────────────────────────────────────
+st.markdown("### 🎛️ 사냥 기준(Trigger) 모드 선택")
+trigger_mode = st.radio(
+    "매수 단계를 판별할 기준 지표를 선택하세요:",
+    ["종목별 전고점 (ATH) 기준", "시장 지수 (Index) 기준"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
+is_index_mode = "Index" in trigger_mode
+
+if is_index_mode:
+    st.info(f"💡 현재 **시장 지수 기준** 모드입니다. 개별 종목의 하락률과 무관하게, 시장 지수 최대 하락률(-{market_max_drop:.1f}%)을 기준으로 전체 포트폴리오의 매수 단계가 일괄 적용됩니다.", icon="📊")
+else:
+    st.success("💡 현재 **개별 종목 전고점 기준** 모드입니다. 각 종목의 52주 전고점 대비 하락률에 따라 개별적으로 매수 단계가 계산됩니다.", icon="🎯")
+
+st.divider()
+
+# ─────────────────────────────────────────
+# 백그라운드 데이터 사전 계산 (Current Status 파악용)
+# ─────────────────────────────────────────
+target_white_budget = total_seed * (white_ratio / 100)
+target_blue_budget  = total_seed * (blue_ratio  / 100)
+
+current_white_invested = 0
+current_blue_invested = 0
+stock_cache = {}
+allocations = {"white": {}, "blue": {}}
+
+# 화이트팀 사전 계산
+w_stocks = st.session_state.white_stocks
+if w_stocks:
+    eq_w = 100 / len(w_stocks)
+    alloc_amt = target_white_budget * (eq_w / 100)
+    for s in w_stocks:
+        tk = s["ticker"]
+        allocations["white"][tk] = {"weight": eq_w, "budget": alloc_amt}
+        data = fetch_stock_data(tk)
+        stock_cache[tk] = data
+        if data["success"] and data["current"] and data["ath"]:
+            stock_drop = ((data["ath"] - data["current"]) / data["ath"] * 100)
+            effective_drop = market_max_drop if is_index_mode else stock_drop
+            stage = get_stage(effective_drop)
+            if stage and stage["stage"] < 4:
+                current_white_invested += alloc_amt * stage["pct"]
+
+# 블루팀 사전 계산 (15% 전략 섹터 포함)
+b_stocks = st.session_state.blue_stocks
+if b_stocks:
+    special_stocks = [s for s in b_stocks if s.get("type") == "특수"]
+    normal_stocks  = [s for s in b_stocks if s.get("type") != "특수"]
+    sp_total_w = 15 if special_stocks and normal_stocks else (100 if special_stocks else 0)
+    nm_total_w = 85 if special_stocks and normal_stocks else (100 if normal_stocks else 0)
+    
+    for s in special_stocks:
+        tk = s["ticker"]
+        w = sp_total_w / len(special_stocks)
+        allocations["blue"][tk] = {"weight": w, "budget": target_blue_budget * (w / 100)}
+    for s in normal_stocks:
+        tk = s["ticker"]
+        w = nm_total_w / len(normal_stocks)
+        allocations["blue"][tk] = {"weight": w, "budget": target_blue_budget * (w / 100)}
+        
+    for s in b_stocks:
+        tk = s["ticker"]
+        data = fetch_stock_data(tk)
+        stock_cache[tk] = data
+        if data["success"] and data["current"] and data["ath"]:
+            stock_drop = ((data["ath"] - data["current"]) / data["ath"] * 100)
+            effective_drop = market_max_drop if is_index_mode else stock_drop
+            stage = get_stage(effective_drop)
+            if stage and stage["stage"] < 4:
+                current_blue_invested += allocations["blue"][tk]["budget"] * stage["pct"]
+
+current_total_invested = current_white_invested + current_blue_invested
+current_cash_remaining = total_seed - current_total_invested
 
 # ─────────────────────────────────────────
 # 자산 분리 대시보드 (Target vs Current)
@@ -379,7 +398,7 @@ st.divider()
 # ─────────────────────────────────────────
 # 종목 카드 및 팀 렌더 함수
 # ─────────────────────────────────────────
-def render_stock_card(ticker, data, stage, drop, buy_usd, buy_krw, alloc_budget, alloc_w, team_color, team_key, is_special=False):
+def render_stock_card(ticker, data, stage, stock_drop, effective_drop, buy_usd, buy_krw, alloc_budget, alloc_w, team_color, team_key, is_special=False, is_idx_mode=False):
     current = data["current"]
     ath     = data["ath"]
     ath_str = "${:,.2f}".format(ath) if ath else "—"
@@ -390,15 +409,15 @@ def render_stock_card(ticker, data, stage, drop, buy_usd, buy_krw, alloc_budget,
             if stage:
                 st.markdown(
                     "<span style='display:inline-block;padding:4px 12px;border-radius:20px;font-weight:700;font-size:0.78rem;background:{bg};color:{c};border:1.5px solid {c}66;'>{emoji} {label}</span>".format(bg=stage['bg'], c=stage['color'], emoji=stage['emoji'], label=stage['label']), unsafe_allow_html=True)
-            elif drop is not None:
+            elif effective_drop is not None:
                 st.markdown("<span style='display:inline-block;padding:4px 12px;border-radius:20px;font-weight:700;font-size:0.78rem;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;'>⏳ 사냥터 접근 전</span>", unsafe_allow_html=True)
             else:
                 st.markdown("<span style='display:inline-block;padding:4px 12px;border-radius:20px;font-weight:700;font-size:0.78rem;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;'>— 데이터 없음</span>", unsafe_allow_html=True)
 
         info_c1, info_c2 = st.columns(2)
         with info_c1:
-            drop_str  = "-{:.1f}%".format(drop) if drop is not None else "—"
-            drop_color = stage["color"] if stage else "#94a3b8"
+            drop_str  = "-{:.1f}%".format(stock_drop) if stock_drop is not None else "—"
+            drop_color = "#dc2626" if (stock_drop is not None and stock_drop >= 20) else "#059669"
             st.markdown(
                 "<div style='background:white;border-radius:14px;padding:14px 16px;border:1.5px solid {border};box-shadow:0 2px 8px rgba(0,0,0,0.04);'>"
                 "<div style='display:flex;align-items:center;gap:10px;margin-bottom:10px;'>"
@@ -408,7 +427,7 @@ def render_stock_card(ticker, data, stage, drop, buy_usd, buy_krw, alloc_budget,
                 "<div style='display:flex;justify-content:space-between;align-items:flex-end;'>"
                 "<div><div style='color:#64748b;font-size:0.7rem;'>현재가</div>"
                 "<div style='font-weight:900;color:#0f172a;font-size:1.15rem;'>{cur}</div></div>"
-                "<div style='text-align:right;'><div style='color:#64748b;font-size:0.7rem;'>ATH 대비</div>"
+                "<div style='text-align:right;'><div style='color:#64748b;font-size:0.7rem;'>실제 종목 하락률</div>"
                 "<div style='font-weight:900;color:{dc};font-size:1.15rem;'>{ds}</div></div></div></div>".format(
                     border=(stage["color"] + "44") if stage else "#e2e8f0", tc=team_color, tick=ticker[:4], ticker=ticker, name=data['name'][:22], cur="${:,.2f}".format(current) if current else "—", dc=drop_color, ds=drop_str
                 ), unsafe_allow_html=True)
@@ -430,15 +449,16 @@ def render_stock_card(ticker, data, stage, drop, buy_usd, buy_krw, alloc_budget,
         st.markdown(f"<div style='display:flex; gap:8px; margin-top:8px;'>{preview_html}</div>", unsafe_allow_html=True)
 
         if stage and stage["stage"] < 4 and buy_usd > 0:
+            basis_text = "시장 지수 하락분" if is_idx_mode else "종목 고점 하락분"
             st.markdown(
                 "<div style='background:white;border-radius:14px;padding:14px 16px;border:2px solid {c}44;margin-top:8px;'>"
-                "<div style='color:#64748b;font-size:0.72rem;margin-bottom:4px;'>🎯 <b>현재 도달 단계</b> 실 매수 추천 금액</div>"
+                "<div style='color:#64748b;font-size:0.72rem;margin-bottom:4px;'>🎯 <b>{basis} 반영</b> 추천 매수 금액</div>"
                 "<div style='font-weight:900;color:{c};font-size:1.3rem;'>{usd}</div>"
                 "<div style='color:#475569;font-size:0.85rem;margin-top:2px;'>{krw}</div>"
-                "</div>".format(c=stage['color'], usd="${:,.0f}".format(buy_usd), krw="≈ ₩{:,.0f}".format(buy_krw)), unsafe_allow_html=True)
-        elif drop is not None and drop < 20:
+                "</div>".format(c=stage['color'], basis=basis_text, usd="${:,.0f}".format(buy_usd), krw="≈ ₩{:,.0f}".format(buy_krw)), unsafe_allow_html=True)
+        elif effective_drop is not None and effective_drop < 20:
             st.markdown("<div style='margin-top:8px'></div>", unsafe_allow_html=True)
-            st.info("ATH 대비 {:.1f}% 하락 — 20% 초과 시 1단계 진입".format(drop), icon="⏳")
+            st.info(f"현재 기준 하락률 {effective_drop:.1f}% — 20% 초과 시 1단계 진입", icon="⏳")
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
         del_c1, del_c2 = st.columns([4, 1])
@@ -480,17 +500,19 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
                     continue
                 current = data["current"]
                 ath = data["ath"]
-                drop = ((ath - current) / ath * 100) if (current and ath) else None
-                stage = get_stage(drop) if drop is not None else None
+                stock_drop = ((ath - current) / ath * 100) if (current and ath) else None
+                effective_drop = market_max_drop if is_index_mode else stock_drop
+                
+                stage = get_stage(effective_drop) if effective_drop is not None else None
                 buy_usd = alloc_data["budget"] * stage["pct"] if (stage and stage["stage"] < 4) else 0
                 buy_krw = buy_usd * exchange_rate
 
-                render_stock_card(ticker, data, stage, drop, buy_usd, buy_krw, alloc_data["budget"], alloc_data["weight"], team_color, team_key, is_special)
+                render_stock_card(ticker, data, stage, stock_drop, effective_drop, buy_usd, buy_krw, alloc_data["budget"], alloc_data["weight"], team_color, team_key, is_special, is_index_mode)
 
                 summary_rows.append({
                     "팀": "🛡 화이트" if is_white else "🚀 블루", "티커": ticker, "종목명": data["name"][:18],
                     "현재가": "${:,.2f}".format(current) if current else "—", "ATH": "${:,.2f}".format(ath) if ath else "—",
-                    "하락률": "{:.1f}%".format(drop) if drop is not None else "—", "단계": stage["label"] if stage else "대기 중",
+                    "적용 하락률": "{:.1f}%".format(effective_drop) if effective_drop is not None else "—", "단계": stage["label"] if stage else "대기 중",
                     "매수(USD)": "${:,.0f}".format(buy_usd) if buy_usd > 0 else "—", "매수(KRW)": "₩{:,.0f}".format(buy_krw) if buy_usd > 0 else "—",
                 })
 
@@ -560,7 +582,7 @@ if all_rows:
                 badge_html = "<span style='display:inline-block;padding:4px 10px;border-radius:20px;background:{bg};color:{fg};border:1.5px solid {border};font-weight:800;font-size:0.78rem;white-space:nowrap;'>{emoji} {label}</span>".format(bg=bg, fg=fg, border=border, emoji=emoji, label=stage_val)
                 break
 
-        dc = drop_color(r["하락률"])
+        dc = drop_color(r["적용 하락률"])
         buy_val = r["매수(USD)"]; buy_krw = r["매수(KRW)"]
         buy_style = "font-weight:800;color:#0f172a;" if buy_val != "—" else "color:#94a3b8;"
         krw_style = "font-weight:700;color:#334155;" if buy_krw != "—" else "color:#94a3b8;"
@@ -578,7 +600,7 @@ if all_rows:
             "<td style='padding:11px 14px;text-align:center;border-bottom:1px solid #f1f5f9;{bs}'>{buy}</td>"
             "<td style='padding:11px 14px;text-align:center;border-bottom:1px solid #f1f5f9;{ks}'>{krw}</td>"
             "</tr>"
-        ).format(bg=row_bg, team=team_badge, ticker=r["티커"], name=r["종목명"], cur=r["현재가"], ath=r["ATH"], dc=dc, drop=r["하락률"], stage=badge_html, bs=buy_style, buy=buy_val, ks=krw_style, krw=buy_krw)
+        ).format(bg=row_bg, team=team_badge, ticker=r["티커"], name=r["종목명"], cur=r["현재가"], ath=r["ATH"], dc=dc, drop=r["적용 하락률"], stage=badge_html, bs=buy_style, buy=buy_val, ks=krw_style, krw=buy_krw)
 
     table_html = """
     <div style='background:white;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.06);margin-bottom:16px;'>
@@ -590,7 +612,7 @@ if all_rows:
           <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:left;'>종목명</th>
           <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>현재가</th>
           <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>ATH</th>
-          <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>하락률</th>
+          <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>적용 하락률</th>
           <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>매수 단계</th>
           <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>매수금액(USD)</th>
           <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>매수금액(KRW)</th>
