@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v14 — 잔여 예산 기반 동적 매수 계산 완벽 적용판
-Streamlit + yfinance | 나의 평단가/수량 연동 + 잔여 예산 기준 10분할
+HUNTER PROTOCOL v15 — 자동 저장(Auto-Save) 시스템 완벽 적용판
+Streamlit + yfinance | 로컬 JSON DB 연동으로 새로고침/종료 시에도 데이터 완벽 보존
 """
 
 import streamlit as st
@@ -8,6 +8,39 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime
 import time
+import json
+import os
+
+# ─────────────────────────────────────────
+# 데이터 저장소 (JSON DB) 설정
+# ─────────────────────────────────────────
+DATA_FILE = "hunter_portfolio.json"
+
+def load_portfolio():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return None
+    return None
+
+def save_portfolio():
+    data = {
+        "white_stocks": st.session_state.get("white_stocks", []),
+        "blue_stocks": st.session_state.get("blue_stocks", []),
+        "settings": {
+            "total_seed": st.session_state.get("total_seed", 100000),
+            "extra_cash": st.session_state.get("extra_cash", 30000),
+            "exchange_rate": st.session_state.get("exchange_rate", 1380),
+            "white_ratio": st.session_state.get("white_ratio", 50)
+        }
+    }
+    try:
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        pass
 
 # ─────────────────────────────────────────
 # 페이지 설정
@@ -105,6 +138,42 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ─────────────────────────────────────────
+# 세션 상태 초기화 (JSON 데이터 로드)
+# ─────────────────────────────────────────
+saved_data = load_portfolio()
+saved_settings = saved_data.get("settings", {}) if saved_data else {}
+
+default_seed = saved_settings.get("total_seed", 100000)
+default_cash = saved_settings.get("extra_cash", 30000)
+default_ex = saved_settings.get("exchange_rate", 1380)
+default_w_ratio = saved_settings.get("white_ratio", 50)
+
+if "white_stocks" not in st.session_state:
+    if saved_data and "white_stocks" in saved_data:
+        st.session_state.white_stocks = saved_data["white_stocks"]
+    else:
+        st.session_state.white_stocks = [
+            {"ticker": "GLD", "type": "안전자산", "avg_price": 0.0, "shares": 0.0}, 
+            {"ticker": "TLT", "type": "안전자산", "avg_price": 0.0, "shares": 0.0}, 
+            {"ticker": "NEE", "type": "일반", "avg_price": 0.0, "shares": 0.0}, 
+            {"ticker": "CEG", "type": "일반", "avg_price": 0.0, "shares": 0.0}
+        ]
+
+if "blue_stocks" not in st.session_state:
+    if saved_data and "blue_stocks" in saved_data:
+        st.session_state.blue_stocks = saved_data["blue_stocks"]
+    else:
+        st.session_state.blue_stocks = [
+            {"ticker": "CRWD", "type": "일반", "avg_price": 0.0, "shares": 0.0}, 
+            {"ticker": "PLTR", "type": "일반", "avg_price": 0.0, "shares": 0.0},
+            {"ticker": "NVDA", "type": "일반", "avg_price": 0.0, "shares": 0.0}, 
+            {"ticker": "IONQ", "type": "특수", "avg_price": 0.0, "shares": 0.0} 
+        ]
+
+if "show_add_white" not in st.session_state: st.session_state.show_add_white = False
+if "show_add_blue" not in st.session_state: st.session_state.show_add_blue = False
+
+# ─────────────────────────────────────────
 # 매수 원칙 구성
 # ─────────────────────────────────────────
 STAGES_BASE = [
@@ -120,26 +189,6 @@ STAGES_MA = [
     {"stage": 3, "label": "3차 (MA 365)", "hunter_msg": "심리적 마지노선 (Capitulation)", "pct": 0.30, "color": "#d97706", "bg": "#fffbeb", "emoji": "🟡"},
     {"stage": 4, "label": "유동성 대기", "hunter_msg": "극단적 추가 하락 대비 탄약 보존", "pct": 0.25, "color": "#dc2626", "bg": "#fef2f2", "emoji": "🔴"},
 ]
-
-# ─────────────────────────────────────────
-# 세션 상태
-# ─────────────────────────────────────────
-if "white_stocks" not in st.session_state:
-    st.session_state.white_stocks = [
-        {"ticker": "GLD", "type": "안전자산", "avg_price": 0.0, "shares": 0.0}, 
-        {"ticker": "TLT", "type": "안전자산", "avg_price": 0.0, "shares": 0.0}, 
-        {"ticker": "NEE", "type": "일반", "avg_price": 0.0, "shares": 0.0}, 
-        {"ticker": "CEG", "type": "일반", "avg_price": 0.0, "shares": 0.0}
-    ]
-if "blue_stocks" not in st.session_state:
-    st.session_state.blue_stocks = [
-        {"ticker": "CRWD", "type": "일반", "avg_price": 0.0, "shares": 0.0}, 
-        {"ticker": "PLTR", "type": "일반", "avg_price": 0.0, "shares": 0.0},
-        {"ticker": "NVDA", "type": "일반", "avg_price": 0.0, "shares": 0.0}, 
-        {"ticker": "IONQ", "type": "특수", "avg_price": 0.0, "shares": 0.0} 
-    ]
-if "show_add_white" not in st.session_state: st.session_state.show_add_white = False
-if "show_add_blue" not in st.session_state: st.session_state.show_add_blue = False
 
 # ─────────────────────────────────────────
 # 데이터 패치 유틸리티
@@ -223,13 +272,13 @@ with st.sidebar:
     st.divider()
     
     st.markdown("#### 💰 투자 목표(Target) 세팅")
-    total_seed    = st.number_input("전체 가용 시드 (USD $)", min_value=1000, max_value=10_000_000, value=100_000, step=1000, format="%d", help="시장에 최종적으로 투입할 백팀/청팀 전체 금액")
-    extra_cash    = st.number_input("여유 현금 보유액 (USD $)", min_value=0, max_value=10_000_000, value=30_000, step=1000, format="%d", help="투자와 별개로 보유 중인 최후의 보루 (비상금)")
-    exchange_rate = st.number_input("환율 (USD→KRW)", min_value=1000, max_value=2000, value=1380, step=10)
+    total_seed    = st.number_input("전체 가용 시드 (USD $)", min_value=1000, max_value=10_000_000, value=int(default_seed), step=1000, format="%d", key="total_seed")
+    extra_cash    = st.number_input("여유 현금 보유액 (USD $)", min_value=0, max_value=10_000_000, value=int(default_cash), step=1000, format="%d", key="extra_cash")
+    exchange_rate = st.number_input("환율 (USD→KRW)", min_value=1000, max_value=2000, value=int(default_ex), step=10, key="exchange_rate")
     
     st.divider()
     st.markdown("##### ⚖️ 주식 시드 목표 비중 (%)")
-    white_ratio = st.slider("🛡 백팀(안전금고) 목표 비중", 0, 100, 50, 5)
+    white_ratio = st.slider("🛡 백팀(안전금고) 목표 비중", 0, 100, int(default_w_ratio), 5, key="white_ratio")
     blue_ratio  = 100 - white_ratio
     
     if white_ratio == 50:
@@ -333,7 +382,7 @@ else:
 st.divider()
 
 # ─────────────────────────────────────────
-# 백그라운드 데이터 사전 계산 (현재 투자금 ACTUAL 동기화)
+# 백그라운드 데이터 사전 계산
 # ─────────────────────────────────────────
 target_white_budget = total_seed * (white_ratio / 100)
 target_blue_budget  = total_seed * (blue_ratio  / 100)
@@ -391,7 +440,7 @@ elif cash_ratio_pct < 20:
     cash_status_color = "#dc2626"
 
 # ─────────────────────────────────────────
-# 자산 분리 대시보드 (Target vs Current)
+# 자산 분리 대시보드
 # ─────────────────────────────────────────
 st.markdown("### ⚡ 포트폴리오 자산 배분 분석")
 tc1, tc2 = st.columns(2)
@@ -447,18 +496,16 @@ with tc2:
 st.divider()
 
 # ─────────────────────────────────────────
-# 종목 카드 렌더 함수 (잔여 예산 기반 동적 로직 적용)
+# 종목 카드 렌더 함수
 # ─────────────────────────────────────────
 def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w, team_color, team_key, special_type, stock_dict, stock_idx, total_stocks):
     current = data["current"]
     
-    # 1. 내 자산 및 잔여 예산 계산
     my_avg = stock_dict.get("avg_price", 0.0)
     my_shares = stock_dict.get("shares", 0.0)
     my_invested_usd = my_avg * my_shares
     remaining_budget_usd = max(0.0, alloc_budget - my_invested_usd)
 
-    # 2. 10분할 매수 로직 정교화: "잔여 예산 중 해당 단계에 배정된 비율"의 1/10
     stage_budget = remaining_budget_usd * stage["pct"] if stage else 0
     split_10_usd = stage_budget / 10 if stage else 0
     split_10_krw = split_10_usd * exchange_rate
@@ -508,7 +555,6 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
             if special_type == "안전자산": special_badge = "<div style='display:inline-block; padding:2px 6px; background:#e0e7ff; color:#4f46e5; border-radius:4px; font-size:0.65rem; margin-bottom:4px; font-weight:700;'>✨ 안전자산 헷지 (백팀 30% 할당)</div><br>"
             elif special_type == "특수": special_badge = "<div style='display:inline-block; padding:2px 6px; background:#e0e7ff; color:#4f46e5; border-radius:4px; font-size:0.65rem; margin-bottom:4px; font-weight:700;'>✨ 1군 전략 섹터 (청팀 30% 할당)</div><br>"
             
-            ath_str = f"${data['ath']:.2f}" if data['ath'] else "—"
             st.markdown(
                 f"<div style='background:white;border-radius:14px;padding:14px 16px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.04);height:100%;'>"
                 f"{special_badge}"
@@ -517,7 +563,6 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
                 f"<div style='color:#64748b;font-size:0.7rem;margin-bottom:2px;'>나의 평단가 / 수량</div>"
                 f"<div style='font-weight:700;color:#0f172a;font-size:1rem;'>${my_avg:.2f} <span style='font-size:0.8rem;color:#64748b;font-weight:400;'>({my_shares:,.2f}주)</span></div></div>", unsafe_allow_html=True)
 
-        # ── 3. 단계별 잔여 예산 분배 미리보기 (4단 블록) ──
         preview_html = "<div style='display:flex; gap:6px; margin-top:8px; margin-bottom:8px;'>"
         for s in active_stages:
             s_amt = remaining_budget_usd * s["pct"]
@@ -531,13 +576,11 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
         preview_html += "</div>"
         st.markdown(preview_html, unsafe_allow_html=True)
 
-        # ── 나의 매수 기록 ──
         with st.expander("📝 나의 매수 기록 (평단 / 수량 업데이트)", expanded=False):
             ic1, ic2 = st.columns(2)
             ic1.number_input("평단가 ($)", value=float(my_avg), key=f"avg_{team_key}_{ticker}", step=1.0)
             ic2.number_input("보유 수량 (주)", value=float(my_shares), key=f"sh_{team_key}_{ticker}", step=1.0)
 
-        # ── 현재 도달 단계 매수액 표시 ──
         if stage and stage["stage"] < 4:
             if is_ma_mode: basis_text = f"이동평균선 ({'주봉' if is_weekly_ma else '일봉'}) 도달"
             elif is_index_mode: basis_text = "S&P 500 시장 지수 하락분"
@@ -555,7 +598,6 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
             if is_ma_mode: st.info(f"현재 가격이 200{'주' if is_weekly_ma else '일'} 이동평균선 위에 있습니다. (관망)", icon="⏳")
             else: st.info(f"현재 적용 하락률 {effective_val:.1f}% — 20% 초과 시 매수 개시", icon="⏳")
 
-        # ── 순서 이동 및 삭제 버튼 ──
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
         bc1, bc2, bc3, bc4 = st.columns([5, 1.2, 1.2, 1.5])
         with bc2:
@@ -564,6 +606,7 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
                 if st.button("◀ 이전", key=f"up_{team_key}_{ticker}", use_container_width=True):
                     lst = st.session_state[f"{team_key}_stocks"]
                     lst[stock_idx - 1], lst[stock_idx] = lst[stock_idx], lst[stock_idx - 1]
+                    save_portfolio()
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
         with bc3:
@@ -572,6 +615,7 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
                 if st.button("다음 ▶", key=f"down_{team_key}_{ticker}", use_container_width=True):
                     lst = st.session_state[f"{team_key}_stocks"]
                     lst[stock_idx + 1], lst[stock_idx] = lst[stock_idx], lst[stock_idx + 1]
+                    save_portfolio()
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
         with bc4:
@@ -579,6 +623,7 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
             if st.button("🗑 삭제", key=f"del_{team_key}_{ticker}", use_container_width=True):
                 st.session_state[f"{team_key}_stocks"].pop(stock_idx)
                 st.cache_data.clear()
+                save_portfolio()
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
@@ -618,6 +663,7 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
                     st.error(f"❌ {ticker} 로드 실패")
                     if st.button("🗑 삭제", key=f"err_del_{team_key}_{ticker}"):
                         st.session_state[f"{team_key}_stocks"].pop(actual_index)
+                        save_portfolio()
                         st.rerun()
                     continue
                     
@@ -636,7 +682,7 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
                     stage = get_base_stage(effective_val) if effective_val is not None else None
                     disp_val = f"-{effective_val:.1f}%" if effective_val is not None else "—"
                 
-                # 테이블 요약 시에도 '잔여 예산 중 해당 단계 배정액'의 1/10 노출
+                # 테이블 요약 시 '잔여 예산 기준 배정액'의 1/10 표출
                 rem_budget = max(0.0, alloc_data["budget"] - (stock_dict.get("avg_price",0)*stock_dict.get("shares",0)))
                 stage_budget = rem_budget * stage["pct"] if (stage and stage["stage"] < 4) else 0
                 buy_usd_1_split = stage_budget / 10
@@ -681,7 +727,9 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
                     added_type = "일반"
                     if is_special_checked: added_type = "안전자산" if is_white else "특수"
                     st.session_state[f"{team_key}_stocks"].append({"ticker": tk, "type": added_type, "avg_price": 0.0, "shares": 0.0})
-                    st.cache_data.clear(); st.session_state[add_key] = False; st.rerun()
+                    st.cache_data.clear()
+                    save_portfolio()
+                    st.session_state[add_key] = False; st.rerun()
                 elif tk: st.warning(f"{tk} 는 이미 등록된 종목입니다.")
         with ac3:
             if st.button("✖  취소", key=f"cancel_{team_key}", use_container_width=True):
@@ -781,3 +829,6 @@ if all_rows:
     """
 
     st.markdown(table_html, unsafe_allow_html=True)
+
+# 입력값이 변경되어 앱이 끝까지 도달하면 무조건 최신 상태를 로컬 파일에 저장합니다.
+save_portfolio()
