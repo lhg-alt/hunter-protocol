@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v4 — 듀얼 트리거 시스템
-Streamlit + yfinance | 전고점(ATH) vs 시장지수(Index) 전환 스위치 탑재 완벽판
+HUNTER PROTOCOL v5 — 윌리엄 분미프 매뉴얼 완벽 적용판
+Streamlit + yfinance | S&P500 듀얼 트리거 + 10분할 매수 시스템 + 자산 분리
 """
 
 import streamlit as st
@@ -13,14 +13,14 @@ import time
 # 페이지 설정
 # ─────────────────────────────────────────
 st.set_page_config(
-    page_title="HUNTER PROTOCOL",
+    page_title="HUNTER PROTOCOL | 분미프",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # ─────────────────────────────────────────
-# CSS (밝은 사이드바 및 레이더 테마)
+# CSS (밝은 테마 및 카드 스타일)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
@@ -31,7 +31,7 @@ st.markdown("""
     .stApp { background: linear-gradient(145deg, #eef2ff 0%, #f8fafc 50%, #ecfdf5 100%) !important; }
     p, div, span, label, h1, h2, h3, h4, h5, li, td, th { color: #1e293b !important; }
 
-    /* 사이드바 밝은 테마 */
+    /* 사이드바 */
     [data-testid="stSidebar"] { background: #ffffff !important; border-right: 1px solid #e2e8f0 !important; }
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] div,
     [data-testid="stSidebar"] span, [data-testid="stSidebar"] label { color: #334155 !important; font-weight: 500 !important; }
@@ -131,7 +131,6 @@ if "show_add_blue" not in st.session_state: st.session_state.show_add_blue = Fal
 def fetch_macro_data():
     try:
         spy = yf.Ticker("SPY")
-        qqq = yf.Ticker("QQQ")
         vix = yf.Ticker("^VIX")
         
         def get_drop(t):
@@ -142,12 +141,10 @@ def fetch_macro_data():
             return ((ath - cur) / ath * 100), cur, ath
             
         spy_drop, spy_cur, spy_ath = get_drop(spy)
-        qqq_drop, qqq_cur, qqq_ath = get_drop(qqq)
         vix_cur = vix.info.get("currentPrice", float(vix.history(period="5d")["Close"].iloc[-1]))
         
         return {
             "SPY": {"drop": spy_drop, "current": spy_cur, "ath": spy_ath},
-            "QQQ": {"drop": qqq_drop, "current": qqq_cur, "ath": qqq_ath},
             "VIX": {"current": vix_cur},
             "success": True
         }
@@ -188,7 +185,7 @@ def fmt_krw(v): return "₩{:,.0f}".format(v)
 # ─────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🎯 HUNTER PROTOCOL")
-    st.caption("재민의 폭락장 자동 사냥기")
+    st.caption("분할매수! 미래섹터! 프레임 탈출!")
     st.divider()
     
     st.markdown("#### 💰 투자 목표(Target) 세팅")
@@ -197,9 +194,9 @@ with st.sidebar:
     
     st.divider()
     st.markdown("##### ⚖️ 팀별 목표 비중 (Target %)")
-    white_ratio = st.slider("🛡 화이트 팀 목표 비중", 0, 100, 50, 5)
+    white_ratio = st.slider("🛡 백팀(안전금고) 목표 비중", 0, 100, 50, 5)
     blue_ratio  = 100 - white_ratio
-    st.caption(f"🚀 블루 팀 목표 비중: **{blue_ratio}%**")
+    st.caption(f"🚀 청팀(세포분열) 목표 비중: **{blue_ratio}%**")
     
     st.divider()
     if st.button("🔄  데이터 새로고침", use_container_width=True, type="primary"):
@@ -212,69 +209,69 @@ with st.sidebar:
         st.rerun()
 
 # ─────────────────────────────────────────
-# 메인 헤더 및 시장 레이더
+# 메인 헤더 및 분미프 매뉴얼 요약
 # ─────────────────────────────────────────
 hc1, hc2 = st.columns([3, 1])
 with hc1:
     st.markdown('<p class="hunter-title">🎯 HUNTER PROTOCOL</p>', unsafe_allow_html=True)
-    st.markdown("재민의 퀀트 대시보드 — **목표와 현실을 분리하고 지수의 공포를 측정하라**")
+    st.markdown("재민의 퀀트 대시보드 — **거대 자본(상어)을 어군탐지기로 써라!**")
 with hc2:
     st.metric("가용 시드 총액", fmt_usd(total_seed))
+
+with st.expander("📜 윌리엄의 분미프 핵심 매뉴얼 요약 (클릭하여 읽기)", expanded=False):
+    st.markdown("""
+    1. **자산은 평생 백팀과 청팀 50:50 유지:** 백팀은 돈을 지켜줄 금고, 청팀은 돈을 불려줄 세포분열 공간이다.
+    2. **수익의 재배치:** 청팀에서 발생한 수익은 즉시 백팀(안전금고)으로 보관한다.
+    3. **청팀 1군(양장우) 30%룰:** 양자컴퓨터, 장수과학, 우주경제 핵심 대장주에 청팀 예산의 30%(전체의 15%)를 최우선 할당한다.
+    4. **10분할 분할매수 절대 원칙:** 한 기업이 저점에 올 때마다 해당 기업 예산의 1/10씩, **주 1회 원칙**으로 **최소 3개월간** 분할 매수한다.
+    5. **10~20개 종목 제한:** 스스로 컨트롤 가능한 범위를 넘어선 오만을 버려라. 물 새는 바가지가 된다.
+    """)
 st.divider()
 
+# ─────────────────────────────────────────
+# 거시 경제 레이더 및 트리거 전환 (S&P 500 단일화)
+# ─────────────────────────────────────────
 macro_data = fetch_macro_data()
 market_max_drop = 0
 if macro_data["success"]:
     spy_drop = macro_data["SPY"]["drop"]
-    qqq_drop = macro_data["QQQ"]["drop"]
     vix_val = macro_data["VIX"]["current"]
-    market_max_drop = max(spy_drop, qqq_drop)
+    market_max_drop = spy_drop  # 시장 지수는 S&P 500 기준 단일화
     
     idx_alert = "🟢 시장 정상"
-    if spy_drop >= 40 or qqq_drop >= 40: idx_alert = "🔴 금융위기 (Capitulation)"
-    elif spy_drop >= 25 or qqq_drop >= 25: idx_alert = "🟠 폭락장 (Panic)"
-    elif spy_drop >= 10 or qqq_drop >= 10: idx_alert = "🟡 일반 조정장"
+    if spy_drop >= 40: idx_alert = "🔴 금융위기 (Capitulation)"
+    elif spy_drop >= 25: idx_alert = "🟠 폭락장 (Panic)"
+    elif spy_drop >= 10: idx_alert = "🟡 일반 조정장"
     
     st.markdown(f"### 📡 시장 거시 레이더 (Market Radar) : {idx_alert}")
-    r1, r2, r3 = st.columns(3)
+    r1, r2 = st.columns(2)
     
     r1.markdown(
         f"<div style='background:white;border-radius:16px;padding:20px;border:1px solid #e2e8f0;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04);'>"
-        f"<div style='color:#64748b;font-weight:700;font-size:0.9rem;margin-bottom:8px;'>S&P 500 (SPY)</div>"
+        f"<div style='color:#64748b;font-weight:700;font-size:0.9rem;margin-bottom:8px;'>S&P 500 (SPY) — 시장의 나침반</div>"
         f"<div style='color:#0f172a;font-weight:900;font-size:1.8rem;'>${macro_data['SPY']['current']:.2f}</div>"
         f"<div style='color:{'#dc2626' if spy_drop>=10 else '#059669'};font-weight:700;font-size:1rem;margin-top:4px;'>ATH 대비 -{spy_drop:.1f}%</div>"
         f"</div>", unsafe_allow_html=True
     )
     r2.markdown(
         f"<div style='background:white;border-radius:16px;padding:20px;border:1px solid #e2e8f0;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04);'>"
-        f"<div style='color:#64748b;font-weight:700;font-size:0.9rem;margin-bottom:8px;'>Nasdaq (QQQ)</div>"
-        f"<div style='color:#0f172a;font-weight:900;font-size:1.8rem;'>${macro_data['QQQ']['current']:.2f}</div>"
-        f"<div style='color:{'#dc2626' if qqq_drop>=10 else '#059669'};font-weight:700;font-size:1rem;margin-top:4px;'>ATH 대비 -{qqq_drop:.1f}%</div>"
-        f"</div>", unsafe_allow_html=True
-    )
-    r3.markdown(
-        f"<div style='background:white;border-radius:16px;padding:20px;border:1px solid #e2e8f0;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04);'>"
-        f"<div style='color:#64748b;font-weight:700;font-size:0.9rem;margin-bottom:8px;'>공포 지수 (VIX)</div>"
+        f"<div style='color:#64748b;font-weight:700;font-size:0.9rem;margin-bottom:8px;'>공포 지수 (VIX) — 대중의 탐욕과 공포</div>"
         f"<div style='color:#0f172a;font-weight:900;font-size:1.8rem;'>{vix_val:.2f}</div>"
-        f"<div style='color:{'#dc2626' if vix_val>=60 else ('#d97706' if vix_val>=30 else '#059669')};font-weight:700;font-size:1rem;margin-top:4px;'>{'위기 수준' if vix_val>=60 else ('불안 수준' if vix_val>=30 else '안정 수준')}</div>"
+        f"<div style='color:{'#dc2626' if vix_val>=60 else ('#d97706' if vix_val>=30 else '#059669')};font-weight:700;font-size:1rem;margin-top:4px;'>{'위기 수준 (60 이상)' if vix_val>=60 else ('불안 수준 (30 이상)' if vix_val>=30 else '안정 수준')}</div>"
         f"</div>", unsafe_allow_html=True
     )
-st.divider()
 
-# ─────────────────────────────────────────
-# 트리거 전환 스위치 (ATH vs Index)
-# ─────────────────────────────────────────
-st.markdown("### 🎛️ 사냥 기준(Trigger) 모드 선택")
+st.markdown("<br>### 🎛️ 사냥 기준(Trigger) 모드 선택", unsafe_allow_html=True)
 trigger_mode = st.radio(
     "매수 단계를 판별할 기준 지표를 선택하세요:",
-    ["종목별 전고점 (ATH) 기준", "시장 지수 (Index) 기준"],
+    ["종목별 전고점 (ATH) 기준", "시장 지수 (S&P 500) 기준"],
     horizontal=True,
     label_visibility="collapsed"
 )
-is_index_mode = "Index" in trigger_mode
+is_index_mode = "S&P 500" in trigger_mode
 
 if is_index_mode:
-    st.info(f"💡 현재 **시장 지수 기준** 모드입니다. 개별 종목의 하락률과 무관하게, 시장 지수 최대 하락률(-{market_max_drop:.1f}%)을 기준으로 전체 포트폴리오의 매수 단계가 일괄 적용됩니다.", icon="📊")
+    st.info(f"💡 현재 **S&P 500 지수 기준** 모드입니다. 개별 종목과 무관하게, 시장 지수 하락률(-{market_max_drop:.1f}%)을 기준으로 모든 포트폴리오에 일괄 매수 단계가 적용됩니다.", icon="📊")
 else:
     st.success("💡 현재 **개별 종목 전고점 기준** 모드입니다. 각 종목의 52주 전고점 대비 하락률에 따라 개별적으로 매수 단계가 계산됩니다.", icon="🎯")
 
@@ -291,7 +288,7 @@ current_blue_invested = 0
 stock_cache = {}
 allocations = {"white": {}, "blue": {}}
 
-# 화이트팀 사전 계산
+# 화이트팀 계산
 w_stocks = st.session_state.white_stocks
 if w_stocks:
     eq_w = 100 / len(w_stocks)
@@ -306,15 +303,16 @@ if w_stocks:
             effective_drop = market_max_drop if is_index_mode else stock_drop
             stage = get_stage(effective_drop)
             if stage and stage["stage"] < 4:
+                # 현재 단계 권장 누적 매수금액 (보수적 집계)
                 current_white_invested += alloc_amt * stage["pct"]
 
-# 블루팀 사전 계산 (15% 전략 섹터 포함)
+# 블루팀 계산 (15% 1군 양장우 포함)
 b_stocks = st.session_state.blue_stocks
 if b_stocks:
     special_stocks = [s for s in b_stocks if s.get("type") == "특수"]
     normal_stocks  = [s for s in b_stocks if s.get("type") != "특수"]
-    sp_total_w = 15 if special_stocks and normal_stocks else (100 if special_stocks else 0)
-    nm_total_w = 85 if special_stocks and normal_stocks else (100 if normal_stocks else 0)
+    sp_total_w = 30 if special_stocks and normal_stocks else (100 if special_stocks else 0) # 청팀 예산의 30% = 전체 시드의 15%
+    nm_total_w = 70 if special_stocks and normal_stocks else (100 if normal_stocks else 0)
     
     for s in special_stocks:
         tk = s["ticker"]
@@ -349,13 +347,13 @@ with tc1:
     st.markdown(
         f"<div style='background:white;border-radius:20px;padding:24px;border:2px solid #cbd5e1;box-shadow:0 4px 12px rgba(0,0,0,0.05);height:100%;'>"
         f"<div style='color:#1e293b;font-weight:900;font-size:1.1rem;margin-bottom:4px;'>🎯 목표 비중 (Target Allocation)</div>"
-        f"<div style='color:#64748b;font-size:0.8rem;margin-bottom:16px;'>모든 시드가 시장에 투입되었을 때의 이상적인 나침반</div>"
+        f"<div style='color:#64748b;font-size:0.8rem;margin-bottom:16px;'>모든 시드가 시장에 투입되었을 때의 평생 유지 나침반</div>"
         f"<div style='display:flex;justify-content:space-between;margin-bottom:8px;'>"
-        f"<div><span style='color:#2563eb;font-weight:800;'>🛡 화이트 팀</span> <span style='font-weight:700;'>{white_ratio}%</span></div>"
+        f"<div><span style='color:#2563eb;font-weight:800;'>🛡 백팀 (안전금고)</span> <span style='font-weight:700;'>{white_ratio}%</span></div>"
         f"<div style='font-weight:800;color:#0f172a;'>{fmt_usd(target_white_budget)}</div>"
         f"</div>"
         f"<div style='display:flex;justify-content:space-between;margin-bottom:16px;'>"
-        f"<div><span style='color:#10b981;font-weight:800;'>🚀 블루 팀</span> <span style='font-weight:700;'>{blue_ratio}%</span></div>"
+        f"<div><span style='color:#10b981;font-weight:800;'>🚀 청팀 (세포분열)</span> <span style='font-weight:700;'>{blue_ratio}%</span></div>"
         f"<div style='font-weight:800;color:#0f172a;'>{fmt_usd(target_blue_budget)}</div>"
         f"</div>"
         f"<div style='width:100%;height:12px;border-radius:6px;display:flex;overflow:hidden;'>"
@@ -375,11 +373,11 @@ with tc2:
         f"<div style='color:#1e293b;font-weight:900;font-size:1.1rem;margin-bottom:4px;'>📊 현재 집행 상태 (Current Status)</div>"
         f"<div style='color:#64748b;font-size:0.8rem;margin-bottom:16px;'>매수 신호에 의해 현재 시드가 시장에 투입된 실제 비율</div>"
         f"<div style='display:flex;justify-content:space-between;margin-bottom:6px;'>"
-        f"<div><span style='color:#2563eb;font-weight:800;'>🛡 집행된 화이트</span> <span style='font-weight:700;'>{cur_w_pct:.1f}%</span></div>"
+        f"<div><span style='color:#2563eb;font-weight:800;'>🛡 집행된 백팀</span> <span style='font-weight:700;'>{cur_w_pct:.1f}%</span></div>"
         f"<div style='font-weight:800;color:#0f172a;'>{fmt_usd(current_white_invested)}</div>"
         f"</div>"
         f"<div style='display:flex;justify-content:space-between;margin-bottom:6px;'>"
-        f"<div><span style='color:#10b981;font-weight:800;'>🚀 집행된 블루</span> <span style='font-weight:700;'>{cur_b_pct:.1f}%</span></div>"
+        f"<div><span style='color:#10b981;font-weight:800;'>🚀 집행된 청팀</span> <span style='font-weight:700;'>{cur_b_pct:.1f}%</span></div>"
         f"<div style='font-weight:800;color:#0f172a;'>{fmt_usd(current_blue_invested)}</div>"
         f"</div>"
         f"<div style='display:flex;justify-content:space-between;margin-bottom:16px;'>"
@@ -396,12 +394,16 @@ with tc2:
 st.divider()
 
 # ─────────────────────────────────────────
-# 종목 카드 및 팀 렌더 함수
+# 종목 카드 및 팀 렌더 함수 (10분할 로직 추가)
 # ─────────────────────────────────────────
-def render_stock_card(ticker, data, stage, stock_drop, effective_drop, buy_usd, buy_krw, alloc_budget, alloc_w, team_color, team_key, is_special=False, is_idx_mode=False):
+def render_stock_card(ticker, data, stage, stock_drop, effective_drop, alloc_budget, alloc_w, team_color, team_key, is_special=False, is_idx_mode=False):
     current = data["current"]
     ath     = data["ath"]
     ath_str = "${:,.2f}".format(ath) if ath else "—"
+
+    # 매뉴얼 10분할 매수 로직 (종목당 총 예산의 1/10)
+    split_10_usd = alloc_budget / 10
+    split_10_krw = split_10_usd * exchange_rate
 
     with st.container():
         badge_cols = st.columns([1, 1])
@@ -433,32 +435,30 @@ def render_stock_card(ticker, data, stage, stock_drop, effective_drop, buy_usd, 
                 ), unsafe_allow_html=True)
 
         with info_c2:
-            special_badge = "<div style='display:inline-block; padding:2px 6px; background:#e0e7ff; color:#4f46e5; border-radius:4px; font-size:0.65rem; margin-bottom:4px; font-weight:700;'>✨ 전략 섹터 (청팀 15% 할당)</div><br>" if is_special else ""
+            special_badge = "<div style='display:inline-block; padding:2px 6px; background:#e0e7ff; color:#4f46e5; border-radius:4px; font-size:0.65rem; margin-bottom:4px; font-weight:700;'>✨ 1군 전략 섹터 (양·장·우)</div><br>" if is_special else ""
             st.markdown(
                 "<div style='background:white;border-radius:14px;padding:14px 16px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.04);height:100%;'>"
                 f"{special_badge}"
-                "<div style='color:#64748b;font-size:0.7rem;margin-bottom:2px;'>팀 내 목표 비중 (총 투자 할당액)</div>"
+                "<div style='color:#64748b;font-size:0.7rem;margin-bottom:2px;'>팀 내 목표 비중 (이 종목 총 예산)</div>"
                 "<div style='font-weight:900;color:#0f172a;font-size:1rem;margin-bottom:10px;'>{w:.1f}% <span style='font-size:0.8rem;color:#64748b;font-weight:400;'>(${budget:,.0f})</span></div>"
                 "<div style='color:#64748b;font-size:0.7rem;margin-bottom:2px;'>52주 ATH</div>"
                 "<div style='font-weight:700;color:#0f172a;font-size:1rem;'>{ath}</div></div>".format(w=alloc_w, budget=alloc_budget, ath=ath_str), unsafe_allow_html=True)
 
-        preview_html = ""
-        for s in STAGES:
-            s_amt = alloc_budget * s["pct"]
-            preview_html += f"<div style='flex:1; background:{s['bg']}; border:1px solid {s['color']}44; border-radius:10px; padding:8px; text-align:center;'><div style='font-size:0.65rem; color:{s['color']}; font-weight:800; margin-bottom:2px;'>{s['label'][:3]}</div><div style='font-size:0.8rem; font-weight:900; color:#0f172a;'>${s_amt:,.0f}</div></div>"
-        st.markdown(f"<div style='display:flex; gap:8px; margin-top:8px;'>{preview_html}</div>", unsafe_allow_html=True)
-
-        if stage and stage["stage"] < 4 and buy_usd > 0:
-            basis_text = "시장 지수 하락분" if is_idx_mode else "종목 고점 하락분"
+        # 10분할 매수 권장액 블록 노출
+        if stage and stage["stage"] < 4:
+            basis_text = "S&P 500 시장 지수 하락분" if is_idx_mode else "개별 종목 고점 하락분"
             st.markdown(
                 "<div style='background:white;border-radius:14px;padding:14px 16px;border:2px solid {c}44;margin-top:8px;'>"
-                "<div style='color:#64748b;font-size:0.72rem;margin-bottom:4px;'>🎯 <b>{basis} 반영</b> 추천 매수 금액</div>"
-                "<div style='font-weight:900;color:{c};font-size:1.3rem;'>{usd}</div>"
-                "<div style='color:#475569;font-size:0.85rem;margin-top:2px;'>{krw}</div>"
-                "</div>".format(c=stage['color'], basis=basis_text, usd="${:,.0f}".format(buy_usd), krw="≈ ₩{:,.0f}".format(buy_krw)), unsafe_allow_html=True)
+                "<div style='color:#64748b;font-size:0.72rem;margin-bottom:4px;'>🔥 <b>{basis} 반영</b> | 10분할 중 1회 권장 매수액</div>"
+                "<div style='display:flex; justify-content:space-between; align-items:center;'>"
+                "<div><div style='font-weight:900;color:{c};font-size:1.3rem;'>{usd}</div>"
+                "<div style='color:#475569;font-size:0.85rem;margin-top:2px;'>{krw}</div></div>"
+                "<div style='text-align:right; font-size:0.75rem; color:#64748b; background:#f1f5f9; padding:6px 10px; border-radius:8px;'><b>매뉴얼: 주 1회 원칙</b><br>최소 3개월 분할</div>"
+                "</div>"
+                "</div>".format(c=stage['color'], basis=basis_text, usd="${:,.0f}".format(split_10_usd), krw="≈ ₩{:,.0f}".format(split_10_krw)), unsafe_allow_html=True)
         elif effective_drop is not None and effective_drop < 20:
             st.markdown("<div style='margin-top:8px'></div>", unsafe_allow_html=True)
-            st.info(f"현재 기준 하락률 {effective_drop:.1f}% — 20% 초과 시 1단계 진입", icon="⏳")
+            st.info(f"현재 적용 하락률 {effective_drop:.1f}% — 20% 초과 시 매수 개시", icon="⏳")
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
         del_c1, del_c2 = st.columns([4, 1])
@@ -504,16 +504,18 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
                 effective_drop = market_max_drop if is_index_mode else stock_drop
                 
                 stage = get_stage(effective_drop) if effective_drop is not None else None
-                buy_usd = alloc_data["budget"] * stage["pct"] if (stage and stage["stage"] < 4) else 0
-                buy_krw = buy_usd * exchange_rate
+                
+                # 테이블 요약용 권장 매수금(1회 분할 분량) 산출
+                buy_usd_1_split = alloc_data["budget"] / 10 if (stage and stage["stage"] < 4) else 0
+                buy_krw_1_split = buy_usd_1_split * exchange_rate
 
-                render_stock_card(ticker, data, stage, stock_drop, effective_drop, buy_usd, buy_krw, alloc_data["budget"], alloc_data["weight"], team_color, team_key, is_special, is_index_mode)
+                render_stock_card(ticker, data, stage, stock_drop, effective_drop, alloc_data["budget"], alloc_data["weight"], team_color, team_key, is_special, is_index_mode)
 
                 summary_rows.append({
-                    "팀": "🛡 화이트" if is_white else "🚀 블루", "티커": ticker, "종목명": data["name"][:18],
+                    "팀": "🛡 백팀" if is_white else "🚀 청팀", "티커": ticker, "종목명": data["name"][:18],
                     "현재가": "${:,.2f}".format(current) if current else "—", "ATH": "${:,.2f}".format(ath) if ath else "—",
                     "적용 하락률": "{:.1f}%".format(effective_drop) if effective_drop is not None else "—", "단계": stage["label"] if stage else "대기 중",
-                    "매수(USD)": "${:,.0f}".format(buy_usd) if buy_usd > 0 else "—", "매수(KRW)": "₩{:,.0f}".format(buy_krw) if buy_usd > 0 else "—",
+                    "1회 분할매수(USD)": "${:,.0f}".format(buy_usd_1_split) if buy_usd_1_split > 0 else "—", "1회 분할매수(KRW)": "₩{:,.0f}".format(buy_krw_1_split) if buy_usd_1_split > 0 else "—",
                 })
 
     # 종목 추가 UI
@@ -530,7 +532,7 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
         with ac1:
             new_tk = st.text_input("티커", placeholder="예: TSLA, AMZN...", key="inp_{}".format(team_key), label_visibility="collapsed")
             is_special_checked = False
-            if not is_white: is_special_checked = st.checkbox("✨ 전략 섹터 (양자컴퓨팅, 장수과학, 우주경제)", key="chk_{}".format(team_key))
+            if not is_white: is_special_checked = st.checkbox("✨ 1군 전략 섹터 (양자/장수/우주)", key="chk_{}".format(team_key))
         with ac2:
             if st.button("✅  추가", key="confirm_{}".format(team_key), type="primary", use_container_width=True):
                 tk = new_tk.strip().upper()
@@ -547,12 +549,12 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
 # ─────────────────────────────────────────
 # 섹션 렌더
 # ─────────────────────────────────────────
-st.markdown("### 🛡 화이트 팀 (White Team) — 방어 / 배당")
-white_rows = render_team("white", "화이트 팀", target_white_budget, "#2563eb", "🛡")
+st.markdown("### 🛡 백팀 (White Team) — 돈을 지켜줄 안전 금고")
+white_rows = render_team("white", "백팀 (안전금고)", target_white_budget, "#2563eb", "🛡")
 st.divider()
 
-st.markdown("### 🚀 블루 팀 (Blue Team) — 성장 / 미래")
-blue_rows = render_team("blue", "블루 팀", target_blue_budget, "#10b981", "🚀")
+st.markdown("### 🚀 청팀 (Blue Team) — 돈을 불려줄 세포분열 공간")
+blue_rows = render_team("blue", "청팀 (세포분열)", target_blue_budget, "#10b981", "🚀")
 st.divider()
 
 # ─────────────────────────────────────────
@@ -583,10 +585,10 @@ if all_rows:
                 break
 
         dc = drop_color(r["적용 하락률"])
-        buy_val = r["매수(USD)"]; buy_krw = r["매수(KRW)"]
+        buy_val = r["1회 분할매수(USD)"]; buy_krw = r["1회 분할매수(KRW)"]
         buy_style = "font-weight:800;color:#0f172a;" if buy_val != "—" else "color:#94a3b8;"
         krw_style = "font-weight:700;color:#334155;" if buy_krw != "—" else "color:#94a3b8;"
-        team_badge = "<span style='color:#2563eb;font-weight:700;'>🛡 화이트</span>" if "화이트" in r["팀"] else "<span style='color:#059669;font-weight:700;'>🚀 블루</span>"
+        team_badge = "<span style='color:#2563eb;font-weight:700;'>🛡 백팀</span>" if "백팀" in r["팀"] else "<span style='color:#059669;font-weight:700;'>🚀 청팀</span>"
 
         rows_html += (
             "<tr style='background:{bg};'>"
@@ -614,8 +616,8 @@ if all_rows:
           <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>ATH</th>
           <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>적용 하락률</th>
           <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>매수 단계</th>
-          <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>매수금액(USD)</th>
-          <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>매수금액(KRW)</th>
+          <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>1회 권장(USD)</th>
+          <th style='padding:13px 14px;color:white;font-weight:700;font-size:0.82rem;text-align:center;'>1회 권장(KRW)</th>
         </tr>
       </thead>
       <tbody>
