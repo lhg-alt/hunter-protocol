@@ -1,5 +1,5 @@
 """
-HUNTER PROTOCOL v9 — 윌리엄 이평선(MA) 저점 매수 법칙 적용판
+HUNTER PROTOCOL v9.1 — 윌리엄 이평선(MA) 저점 매수 법칙 적용 (오류 수정 완벽판)
 Streamlit + yfinance | MA 200/240/365 자동 계산 + 3-Way 트리거 스위치
 """
 
@@ -320,10 +320,8 @@ st.divider()
 target_white_budget = total_seed * (white_ratio / 100)
 target_blue_budget  = total_seed * (blue_ratio  / 100)
 
-current_white_invested = 0
-current_blue_invested = 0
-stock_cache = {}
 allocations = {"white": {}, "blue": {}}
+stock_cache = {}
 
 def process_team_data(team_stocks, team_budget, team_type):
     invested = 0
@@ -439,7 +437,7 @@ with tc2:
 st.divider()
 
 # ─────────────────────────────────────────
-# 종목 카드 및 팀 렌더 함수 (MA 표시 통합)
+# 종목 카드 렌더 함수 
 # ─────────────────────────────────────────
 def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w, team_color, team_key, special_type=None):
     current = data["current"]
@@ -582,7 +580,8 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
                 buy_usd_1_split = alloc_data["budget"] / 10 if (stage and stage["stage"] < 4) else 0
                 buy_krw_1_split = buy_usd_1_split * exchange_rate
 
-                render_stock_card(ticker, data, stage, None, effective_val, alloc_data["budget"], alloc_data["weight"], team_color, team_key, sp_type)
+                # 인자 9개(special_type까지) 완벽히 맞춰 호출
+                render_stock_card(ticker, data, stage, effective_val, alloc_data["budget"], alloc_data["weight"], team_color, team_key, sp_type)
 
                 summary_rows.append({
                     "팀": "🛡 백팀" if is_white else "🚀 청팀", "티커": ticker, "종목명": data["name"][:18],
