@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v18 — 종목 팀 이동(리밸런싱 스왑) 기능 탑재판
-Streamlit + yfinance | 기존 평단/수량 유지하며 백팀↔청팀 자유 이동 기능 추가
+HUNTER PROTOCOL v19 — 듀얼 탭(Tabs) 인터페이스 적용판
+Streamlit + yfinance | 백팀/청팀 탭 분리로 스크롤 최소화 및 직관성 극대화
 """
 
 import streamlit as st
@@ -53,7 +53,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────
-# CSS (밝은 테마 및 카드 스타일)
+# CSS (밝은 테마 및 카드 스타일 + 탭 UI 최적화)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
@@ -68,6 +68,11 @@ st.markdown("""
     /* 라디오 버튼(스위치) 가독성 */
     .stRadio p { font-size: 1.15rem !important; font-weight: 800 !important; color: #0f172a !important; }
     div.row-widget.stRadio > div { background: white; padding: 16px 24px; border-radius: 16px; border: 2px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.06); display: flex; gap: 24px; flex-wrap: wrap; }
+
+    /* 탭(Tabs) UI 디자인 최적화 */
+    div[data-baseweb="tab-list"] { gap: 16px; margin-bottom: 24px; }
+    div[data-baseweb="tab"] { font-size: 1.25rem !important; font-weight: 800 !important; padding: 12px 24px !important; color: #64748b !important; border-radius: 12px 12px 0 0; background-color: transparent; border-bottom: 3px solid transparent; transition: all 0.3s; }
+    div[data-baseweb="tab"][aria-selected="true"] { color: #0f172a !important; border-bottom: 3px solid #2563eb !important; background-color: #ffffff; box-shadow: 0 -4px 12px rgba(0,0,0,0.03); }
 
     /* 사이드바 */
     [data-testid="stSidebar"] { background: #ffffff !important; border-right: 1px solid #e2e8f0 !important; }
@@ -265,7 +270,7 @@ def fmt_usd(v): return "${:,.0f}".format(v)
 def fmt_krw(v): return "₩{:,.0f}".format(v)
 
 # ─────────────────────────────────────────
-# 사이드바 (투입 시드 및 현금 설정)
+# 사이드바 (투입 시드, 현금 설정 및 빠른 종목 추가)
 # ─────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🎯 HUNTER PROTOCOL")
@@ -308,7 +313,11 @@ with st.sidebar:
                 if tk_up not in existing:
                     added_type = "일반"
                     if sb_sp: added_type = "안전자산" if is_white else "특수"
-                    target_list.append({"ticker": tk_up, "type": added_type, "avg_price": float(sb_avg), "shares": float(sb_sh)})
+                    
+                    target_list.append({
+                        "ticker": tk_up, "type": added_type, 
+                        "avg_price": float(sb_avg), "shares": float(sb_sh)
+                    })
                     save_portfolio()
                     st.cache_data.clear()
                     st.rerun()
@@ -525,7 +534,7 @@ with tc2:
 st.divider()
 
 # ─────────────────────────────────────────
-# 종목 카드 렌더 함수 (팀 이동 버튼 추가)
+# 종목 카드 렌더 함수
 # ─────────────────────────────────────────
 def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w, team_color, team_key, special_type, stock_dict, stock_idx, total_stocks):
     current = data["current"]
@@ -539,7 +548,6 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
     split_10_usd = stage_budget / 10 if stage else 0
     split_10_krw = split_10_usd * exchange_rate
 
-    # 사냥 신호 포착 시 카드 하이라이트
     if stage and stage["stage"] < 4:
         border_style = f"3px solid {stage['color']}"
         shadow_style = f"0 0 20px {stage['color']}66"
@@ -635,9 +643,7 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
             if is_ma_mode: st.info(f"현재 가격이 200{'주' if is_weekly_ma else '일'} 이동평균선 위에 있습니다. (관망 중)", icon="⏳")
             else: st.info(f"현재 적용 하락률 {effective_val:.1f}% — 20% 초과 시 매수 개시", icon="⏳")
 
-        # ── 순서 이동, 팀 스왑, 삭제 버튼 ──
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-        # 컬럼 5개 분할 (여백, 이전, 다음, 팀이동, 삭제)
         bc1, bc2, bc3, bc4, bc5 = st.columns([2.5, 1.2, 1.2, 1.7, 1.2])
         with bc2:
             if stock_idx > 0:
@@ -662,11 +668,8 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
             swap_label = "🔁 청팀으로" if team_key == "white" else "🔁 백팀으로"
             target_key = "blue" if team_key == "white" else "white"
             if st.button(swap_label, key=f"swap_{team_key}_{ticker}", use_container_width=True):
-                # 기존 팀에서 뽑아내기
                 stock_to_move = st.session_state[f"{team_key}_stocks"].pop(stock_idx)
-                # 이동 시 특수 룰(안전자산/1군)은 충돌 방지를 위해 일반으로 자동 초기화
                 stock_to_move["type"] = "일반"
-                # 타겟 팀에 넣기
                 st.session_state[f"{target_key}_stocks"].append(stock_to_move)
                 save_portfolio()
                 st.cache_data.clear()
@@ -685,18 +688,11 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
 def render_team(team_key, team_label, team_budget, team_color, team_emoji):
     stocks = st.session_state[f"{team_key}_stocks"]
     is_white = team_key == "white"
-    grad = ("linear-gradient(135deg,#eff6ff,#dbeafe)" if is_white else "linear-gradient(135deg,#f0fdf4,#dcfce7)")
 
     if is_white:
         if len(stocks) > 7: st.error("🚨 [매뉴얼 위반] 백팀(금고) 종목 수가 7개를 초과했습니다! 관리 가능한 5~7개 이내로 통제하지 않으면 물 새는 바가지가 됩니다.")
         elif len(stocks) >= 5 and len(stocks) <= 7: st.success("✅ [매뉴얼 준수] 완벽합니다. 금고의 수가 5~7개로 안전하게 관리되고 있습니다.")
         elif len(stocks) > 0 and len(stocks) < 5: st.info("💡 [매뉴얼 권장] 백팀 금고는 5~7개로 구성하는 것이 리스크 분산에 가장 이상적입니다.")
-
-    st.markdown(
-        f"<div style='border-radius:20px;padding:18px 24px;margin-bottom:16px;background:{grad};border:2px solid {team_color}33;'>"
-        f"<span style='font-size:1.4rem'>{team_emoji}</span><span style='font-weight:900;color:{team_color};font-size:1.15rem;margin-left:8px;'>{team_label}</span>"
-        f"<span style='color:#475569;font-size:0.88rem;margin-left:12px;'>목표 예산: <strong style='color:#0f172a;'>${team_budget:,.0f}</strong>&nbsp;(≈ ₩{team_budget * exchange_rate:,.0f})</span>"
-        f"</div>", unsafe_allow_html=True)
 
     summary_rows = []
     stocks_len = len(stocks)
@@ -802,14 +798,18 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
     return summary_rows
 
 # ─────────────────────────────────────────
-# 섹션 렌더
+# 섹션 렌더 (탭 분리 적용)
 # ─────────────────────────────────────────
-st.markdown("### 🛡 백팀 (White Team) — 돈을 지켜줄 안전 금고")
-white_rows = render_team("white", "백팀 (안전금고)", target_white_budget, "#2563eb", "🛡")
-st.divider()
+tab_white, tab_blue = st.tabs(["🛡 백팀 (안전금고)", "🚀 청팀 (세포분열)"])
 
-st.markdown("### 🚀 청팀 (Blue Team) — 돈을 불려줄 세포분열 공간")
-blue_rows = render_team("blue", "청팀 (세포분열)", target_blue_budget, "#10b981", "🚀")
+with tab_white:
+    st.markdown("### 🛡 백팀 (White Team) — 돈을 지켜줄 안전 금고")
+    white_rows = render_team("white", "백팀 (안전금고)", target_white_budget, "#2563eb", "🛡")
+
+with tab_blue:
+    st.markdown("### 🚀 청팀 (Blue Team) — 돈을 불려줄 세포분열 공간")
+    blue_rows = render_team("blue", "청팀 (세포분열)", target_blue_budget, "#10b981", "🚀")
+
 st.divider()
 
 # ─────────────────────────────────────────
