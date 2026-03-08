@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v19 — 듀얼 탭(Tabs) 인터페이스 적용판
-Streamlit + yfinance | 백팀/청팀 탭 분리로 스크롤 최소화 및 직관성 극대화
+HUNTER PROTOCOL v20 — 영구 보존(백업 & 복구) 시스템 탑재판
+Streamlit + yfinance | Streamlit Cloud 초기화 방어용 로컬 파일 다운로드/업로드 지원
 """
 
 import streamlit as st
@@ -53,7 +53,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────
-# CSS (밝은 테마 및 카드 스타일 + 탭 UI 최적화)
+# CSS (밝은 테마 및 카드 스타일)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
@@ -270,7 +270,7 @@ def fmt_usd(v): return "${:,.0f}".format(v)
 def fmt_krw(v): return "₩{:,.0f}".format(v)
 
 # ─────────────────────────────────────────
-# 사이드바 (투입 시드, 현금 설정 및 빠른 종목 추가)
+# 사이드바 (투입 시드, 현금 설정 및 데이터 백업/복구)
 # ─────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🎯 HUNTER PROTOCOL")
@@ -325,11 +325,61 @@ with st.sidebar:
                     st.warning(f"{tk_up}는 이미 존재하는 종목입니다.")
 
     st.divider()
-    if st.button("🔄  데이터 새로고침", use_container_width=True):
-        st.cache_data.clear()
-        st.success("캐시 초기화 완료!")
-        time.sleep(0.4)
-        st.rerun()
+
+    # 🌟 V20.0 핵심: 데이터 영구 보존용 백업 & 복구 메뉴 🌟
+    with st.expander("📂 데이터 백업 및 복구 (안전 장치)", expanded=False):
+        st.caption("클라우드 초기화에 대비해 데이터를 저장하세요.")
+        
+        # 다운로드 버튼 생성을 위한 JSON 직렬화
+        current_backup_data = {
+            "white_stocks": st.session_state.white_stocks,
+            "blue_stocks": st.session_state.blue_stocks,
+            "settings": {
+                "total_seed": st.session_state.total_seed,
+                "extra_cash": st.session_state.extra_cash,
+                "exchange_rate": st.session_state.exchange_rate,
+                "white_ratio": st.session_state.white_ratio
+            }
+        }
+        backup_json_str = json.dumps(current_backup_data, ensure_ascii=False, indent=4)
+        
+        st.download_button(
+            label="💾 내 포트폴리오 백업하기",
+            data=backup_json_str,
+            file_name=f"hunter_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+        
+        st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("백업 파일(.json) 업로드", type=["json"], label_visibility="collapsed")
+        if uploaded_file is not None:
+            if st.button("🔄 이 파일로 완벽 복구하기", use_container_width=True, type="primary"):
+                try:
+                    restored = json.load(uploaded_file)
+                    st.session_state.white_stocks = restored.get("white_stocks", [])
+                    st.session_state.blue_stocks = restored.get("blue_stocks", [])
+                    
+                    rst_settings = restored.get("settings", {})
+                    st.session_state.total_seed = rst_settings.get("total_seed", 100000)
+                    st.session_state.extra_cash = rst_settings.get("extra_cash", 30000)
+                    st.session_state.exchange_rate = rst_settings.get("exchange_rate", 1380)
+                    st.session_state.white_ratio = rst_settings.get("white_ratio", 50)
+
+                    # 위젯 동기화를 위해 임시 세션키 강제 주입
+                    for t_key in ["white", "blue"]:
+                        for s in st.session_state[f"{t_key}_stocks"]:
+                            st.session_state[f"avg_{t_key}_{s['ticker']}"] = float(s.get("avg_price", 0.0))
+                            st.session_state[f"sh_{t_key}_{s['ticker']}"] = float(s.get("shares", 0.0))
+
+                    save_portfolio()
+                    st.success("데이터가 성공적으로 복구되었습니다!")
+                    time.sleep(0.5)
+                    st.rerun()
+                except Exception as e:
+                    st.error("파일 복구 중 오류가 발생했습니다.")
+
+    st.divider()
     if st.button("🚪  로그아웃", use_container_width=True):
         st.session_state.authenticated = False
         st.rerun()
