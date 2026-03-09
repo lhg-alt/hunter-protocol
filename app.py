@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v20 — 영구 보존(백업 & 복구) 시스템 탑재판
-Streamlit + yfinance | Streamlit Cloud 초기화 방어용 로컬 파일 다운로드/업로드 지원
+HUNTER PROTOCOL v21 — API 서버 무적화(안정성 극대화) 패치
+Streamlit + yfinance | Yahoo Finance Rate Limit(접속 차단) 방어 및 데이터 수집 최적화
 """
 
 import streamlit as st
@@ -197,52 +197,68 @@ STAGES_MA = [
 ]
 
 # ─────────────────────────────────────────
-# 데이터 패치 유틸리티
+# 데이터 패치 유틸리티 (API 호출 최적화 - V21 핵심 로직)
 # ─────────────────────────────────────────
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def fetch_macro_data():
     try:
         spy = yf.Ticker("SPY")
         vix = yf.Ticker("^VIX")
+        
         def get_drop(t):
             hist = t.history(period="1y")
-            cur = t.info.get("currentPrice", float(hist["Close"].iloc[-1]) if not hist.empty else 0)
-            ath = t.info.get("fiftyTwoWeekHigh", float(hist["High"].max()) if not hist.empty else 0)
+            if hist.empty: return 0, 0, 0
+            cur = float(hist["Close"].iloc[-1])
+            ath = float(hist["High"].max())
             if ath == 0: return 0, cur, ath
             return ((ath - cur) / ath * 100), cur, ath
+            
         spy_drop, spy_cur, spy_ath = get_drop(spy)
-        vix_cur = vix.info.get("currentPrice", float(vix.history(period="5d")["Close"].iloc[-1]))
+        vix_hist = vix.history(period="5d")
+        vix_cur = float(vix_hist["Close"].iloc[-1]) if not vix_hist.empty else 0
+        
         return {"SPY": {"drop": spy_drop, "current": spy_cur, "ath": spy_ath}, "VIX": {"current": vix_cur}, "success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def fetch_stock_data(ticker: str):
     try:
         t = yf.Ticker(ticker)
-        info = t.info
-        hist_d = t.history(period="2y", interval="1d")
-        hist_w = t.history(period="10y", interval="1wk")
         
-        current = info.get("currentPrice") or info.get("regularMarketPrice")
-        if current is None and not hist_d.empty: current = float(hist_d["Close"].iloc[-1])
+        # 1. API 호출 1회로 극단적 압축 (10년치 일봉 데이터 한 번만 호출)
+        hist = t.history(period="10y", interval="1d")
+        if hist.empty:
+            return {"ticker": ticker.upper(), "success": False, "error": "No data"}
+            
+        current = float(hist["Close"].iloc[-1])
         
-        ath_52w = float(hist_d["High"][-252:].max()) if len(hist_d) >= 252 else (float(hist_d["High"].max()) if not hist_d.empty else None)
-        ath = info.get("fiftyTwoWeekHigh") or ath_52w
-        name = info.get("shortName") or info.get("longName") or ticker
+        # 2. 52주 고점 (약 252 거래일)
+        ath = float(hist["High"][-252:].max()) if len(hist) >= 252 else float(hist["High"].max())
         
-        ma200_d = float(hist_d["Close"].rolling(200).mean().iloc[-1]) if len(hist_d) >= 200 else None
-        ma240_d = float(hist_d["Close"].rolling(240).mean().iloc[-1]) if len(hist_d) >= 240 else None
-        ma365_d = float(hist_d["Close"].rolling(365).mean().iloc[-1]) if len(hist_d) >= 365 else None
+        # 3. 불안정한 info 호출 방어 로직
+        name = ticker.upper()
+        try:
+            info = t.info
+            name = info.get("shortName") or info.get("longName") or ticker.upper()
+        except:
+            pass # info 호출 실패 시 티커명 그대로 사용
+            
+        # 4. 일봉 이동평균선 연산
+        ma200_d = float(hist["Close"].rolling(200).mean().iloc[-1]) if len(hist) >= 200 else None
+        ma240_d = float(hist["Close"].rolling(240).mean().iloc[-1]) if len(hist) >= 240 else None
+        ma365_d = float(hist["Close"].rolling(365).mean().iloc[-1]) if len(hist) >= 365 else None
 
-        ma200_w = float(hist_w["Close"].rolling(200).mean().iloc[-1]) if len(hist_w) >= 200 else None
-        ma240_w = float(hist_w["Close"].rolling(240).mean().iloc[-1]) if len(hist_w) >= 240 else None
-        ma365_w = float(hist_w["Close"].rolling(365).mean().iloc[-1]) if len(hist_w) >= 365 else None
+        # 5. 주봉 데이터 자체 변환 및 주봉 이동평균선 연산 (추가 API 호출 방지)
+        hist_w = hist["Close"].resample('W').last()
+        ma200_w = float(hist_w.rolling(200).mean().iloc[-1]) if len(hist_w) >= 200 else None
+        ma240_w = float(hist_w.rolling(240).mean().iloc[-1]) if len(hist_w) >= 240 else None
+        ma365_w = float(hist_w.rolling(365).mean().iloc[-1]) if len(hist_w) >= 365 else None
 
         return {
             "ticker": ticker.upper(), "name": name,
-            "current": round(float(current), 2) if current else None,
-            "ath":     round(float(ath),     2) if ath     else None,
+            "current": round(current, 2),
+            "ath":     round(ath, 2),
             "ma200_d": round(ma200_d, 2) if ma200_d else None,
             "ma240_d": round(ma240_d, 2) if ma240_d else None,
             "ma365_d": round(ma365_d, 2) if ma365_d else None,
@@ -326,11 +342,9 @@ with st.sidebar:
 
     st.divider()
 
-    # 🌟 V20.0 핵심: 데이터 영구 보존용 백업 & 복구 메뉴 🌟
     with st.expander("📂 데이터 백업 및 복구 (안전 장치)", expanded=False):
         st.caption("클라우드 초기화에 대비해 데이터를 저장하세요.")
         
-        # 다운로드 버튼 생성을 위한 JSON 직렬화
         current_backup_data = {
             "white_stocks": st.session_state.white_stocks,
             "blue_stocks": st.session_state.blue_stocks,
@@ -366,7 +380,6 @@ with st.sidebar:
                     st.session_state.exchange_rate = rst_settings.get("exchange_rate", 1380)
                     st.session_state.white_ratio = rst_settings.get("white_ratio", 50)
 
-                    # 위젯 동기화를 위해 임시 세션키 강제 주입
                     for t_key in ["white", "blue"]:
                         for s in st.session_state[f"{t_key}_stocks"]:
                             st.session_state[f"avg_{t_key}_{s['ticker']}"] = float(s.get("avg_price", 0.0))
@@ -760,7 +773,7 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
             
             with cols[j]:
                 if not data["success"]:
-                    st.error(f"❌ {ticker} 로드 실패")
+                    st.error(f"❌ {ticker} 로드 실패 (접속 제한 등)")
                     if st.button("🗑 삭제", key=f"err_del_{team_key}_{ticker}"):
                         st.session_state[f"{team_key}_stocks"].pop(actual_index)
                         save_portfolio()
