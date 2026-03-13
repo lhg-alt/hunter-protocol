@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v21 — API 서버 무적화(안정성 극대화) 패치
-Streamlit + yfinance | Yahoo Finance Rate Limit(접속 차단) 방어 및 데이터 수집 최적화
+HUNTER PROTOCOL v21.1 — 파일 복구 오류 완벽 해결판
+Streamlit + yfinance | 로컬 JSON 업로드/다운로드 디코딩 안정화 적용
 """
 
 import streamlit as st
@@ -226,30 +226,24 @@ def fetch_stock_data(ticker: str):
     try:
         t = yf.Ticker(ticker)
         
-        # 1. API 호출 1회로 극단적 압축 (10년치 일봉 데이터 한 번만 호출)
         hist = t.history(period="10y", interval="1d")
         if hist.empty:
             return {"ticker": ticker.upper(), "success": False, "error": "No data"}
             
         current = float(hist["Close"].iloc[-1])
-        
-        # 2. 52주 고점 (약 252 거래일)
         ath = float(hist["High"][-252:].max()) if len(hist) >= 252 else float(hist["High"].max())
         
-        # 3. 불안정한 info 호출 방어 로직
         name = ticker.upper()
         try:
             info = t.info
             name = info.get("shortName") or info.get("longName") or ticker.upper()
         except:
-            pass # info 호출 실패 시 티커명 그대로 사용
+            pass 
             
-        # 4. 일봉 이동평균선 연산
         ma200_d = float(hist["Close"].rolling(200).mean().iloc[-1]) if len(hist) >= 200 else None
         ma240_d = float(hist["Close"].rolling(240).mean().iloc[-1]) if len(hist) >= 240 else None
         ma365_d = float(hist["Close"].rolling(365).mean().iloc[-1]) if len(hist) >= 365 else None
 
-        # 5. 주봉 데이터 자체 변환 및 주봉 이동평균선 연산 (추가 API 호출 방지)
         hist_w = hist["Close"].resample('W').last()
         ma200_w = float(hist_w.rolling(200).mean().iloc[-1]) if len(hist_w) >= 200 else None
         ma240_w = float(hist_w.rolling(240).mean().iloc[-1]) if len(hist_w) >= 240 else None
@@ -342,6 +336,7 @@ with st.sidebar:
 
     st.divider()
 
+    # 🌟 V21.1 핵심: 업로드된 파일 포인터 에러 방어 로직 완벽 적용 🌟
     with st.expander("📂 데이터 백업 및 복구 (안전 장치)", expanded=False):
         st.caption("클라우드 초기화에 대비해 데이터를 저장하세요.")
         
@@ -367,10 +362,14 @@ with st.sidebar:
         
         st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
         uploaded_file = st.file_uploader("백업 파일(.json) 업로드", type=["json"], label_visibility="collapsed")
+        
         if uploaded_file is not None:
             if st.button("🔄 이 파일로 완벽 복구하기", use_container_width=True, type="primary"):
                 try:
-                    restored = json.load(uploaded_file)
+                    # 파일의 이진 데이터를 강제로 읽어와서 명확하게 UTF-8 텍스트로 디코딩
+                    file_content = uploaded_file.getvalue().decode("utf-8")
+                    restored = json.loads(file_content)
+                    
                     st.session_state.white_stocks = restored.get("white_stocks", [])
                     st.session_state.blue_stocks = restored.get("blue_stocks", [])
                     
@@ -386,11 +385,11 @@ with st.sidebar:
                             st.session_state[f"sh_{t_key}_{s['ticker']}"] = float(s.get("shares", 0.0))
 
                     save_portfolio()
-                    st.success("데이터가 성공적으로 복구되었습니다!")
+                    st.success("✅ 데이터가 성공적으로 복구되었습니다!")
                     time.sleep(0.5)
                     st.rerun()
                 except Exception as e:
-                    st.error("파일 복구 중 오류가 발생했습니다.")
+                    st.error(f"파일 복구 중 오류가 발생했습니다. 원인: {e}")
 
     st.divider()
     if st.button("🚪  로그아웃", use_container_width=True):
@@ -957,5 +956,3 @@ if all_rows:
     """
 
     st.markdown(table_html, unsafe_allow_html=True)
-
-save_portfolio()
