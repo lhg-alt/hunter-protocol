@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v21.2 — 파일 복구 위젯 충돌 오류(Instantiated Error) 완벽 해결판
-Streamlit + yfinance | 데이터 복구 모듈 최상단 배치로 세션 스테이트 충돌 원천 차단
+HUNTER PROTOCOL v22 — 복구 오류 완전 해결 및 하단 배치 / CSS 시인성 최적화
+Streamlit + yfinance | Instantiated 에러 원천 차단 및 파일 업로더 가독성 패치
 """
 
 import streamlit as st
@@ -53,7 +53,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────
-# CSS (밝은 테마 및 카드 스타일)
+# CSS (밝은 테마 및 카드 스타일, 파일 업로더 밝은 테마 강제 패치)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
@@ -84,9 +84,14 @@ st.markdown("""
     [data-testid="stSidebar"] input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 1px #3b82f6 !important; }
     [data-testid="stSidebar"] hr { border-bottom-color: #e2e8f0 !important; }
 
-    /* 🌟 데이터 백업/복구 (파일 업로더) 시인성 강제 패치 🌟 */
-    [data-testid="stFileUploadDropzone"] { background-color: #f8fafc !important; border: 2px dashed #94a3b8 !important; border-radius: 12px !important; padding: 24px !important; }
-    [data-testid="stFileUploadDropzone"] div, [data-testid="stFileUploadDropzone"] span, [data-testid="stFileUploadDropzone"] small { color: #0f172a !important; font-weight: 800 !important; }
+    /* 🌟 데이터 백업/복구 (파일 업로더) 밝은 배경 & 진한 글씨 강제 패치 🌟 */
+    [data-testid="stFileUploader"] { background-color: #ffffff !important; border-radius: 12px; padding: 10px; }
+    [data-testid="stFileUploadDropzone"] { background-color: #f1f5f9 !important; border: 2px dashed #3b82f6 !important; }
+    [data-testid="stFileUploadDropzone"] div, 
+    [data-testid="stFileUploadDropzone"] span, 
+    [data-testid="stFileUploadDropzone"] small,
+    [data-testid="stFileUploadDropzone"] p,
+    section[data-testid="stFileUploader"] * { color: #0f172a !important; font-weight: 800 !important; }
     div[data-testid="stExpander"] details summary p { color: #0f172a !important; font-weight: 800 !important; }
 
     /* 메트릭 및 컨테이너 */
@@ -292,7 +297,64 @@ with st.sidebar:
     st.caption("거대 자본의 흐름을 읽는 어군탐지기")
     st.divider()
     
-    # 🌟 V21.2 핵심 패치: 오류 방지를 위해 복구 모듈을 최상단으로 끌어올림 🌟
+    # 🌟 V22 핵심: 위젯 상태 충돌(Instantiated Error)을 방지하는 수동 연결 방식 🌟
+    st.markdown("#### 💰 투자 목표(Target) 세팅")
+    input_total_seed = st.number_input("전체 가용 시드 (USD $)", min_value=1000, max_value=10_000_000, value=int(st.session_state.get("total_seed", default_seed)), step=1000, format="%d")
+    st.session_state["total_seed"] = input_total_seed
+
+    input_extra_cash = st.number_input("여유 현금 보유액 (USD $)", min_value=0, max_value=10_000_000, value=int(st.session_state.get("extra_cash", default_cash)), step=1000, format="%d")
+    st.session_state["extra_cash"] = input_extra_cash
+
+    input_exchange_rate = st.number_input("환율 (USD→KRW)", min_value=1000, max_value=2000, value=int(st.session_state.get("exchange_rate", default_ex)), step=10)
+    st.session_state["exchange_rate"] = input_exchange_rate
+    
+    st.divider()
+    st.markdown("##### ⚖️ 주식 시드 목표 비중 (%)")
+    input_white_ratio = st.slider("🛡 백팀(안전금고) 목표 비중", 0, 100, int(st.session_state.get("white_ratio", default_w_ratio)), 5)
+    st.session_state["white_ratio"] = input_white_ratio
+
+    blue_ratio = 100 - input_white_ratio
+    
+    if input_white_ratio == 50:
+        st.success(f"✅ 완벽한 50:50 황금 밸런스 유지중")
+    else:
+        st.warning(f"💡 백팀 금고 해제 (리밸런싱) 모드 활성화\n(현재 백 {input_white_ratio} : 청 {blue_ratio})\n폭락장 평단 낮추기 전용")
+        
+    st.divider()
+    
+    with st.expander("⚡ 빠른 종목 추가 (Quick Add)", expanded=False):
+        sb_team = st.selectbox("소속 팀 선택", ["🛡 백팀 (안전금고)", "🚀 청팀 (세포분열)"], label_visibility="collapsed")
+        sb_tk = st.text_input("티커 (예: AAPL)", key="sb_tk_input")
+        sb_c1, sb_c2 = st.columns(2)
+        sb_avg = sb_c1.number_input("내 평단가 ($)", min_value=0.0, step=1.0, key="sb_avg_input")
+        sb_sh = sb_c2.number_input("보유 수량", min_value=0.0, step=1.0, key="sb_sh_input")
+        sb_sp = st.checkbox("✨ 특수 룰 적용 (백:안전 / 청:1군)", key="sb_sp_input")
+        
+        if st.button("➕ 종목 추가하기", use_container_width=True, type="primary"):
+            tk_up = sb_tk.strip().upper()
+            if tk_up:
+                is_white = "백팀" in sb_team
+                team_key = "white" if is_white else "blue"
+                target_list = st.session_state[f"{team_key}_stocks"]
+                existing = [s["ticker"] for s in target_list]
+                
+                if tk_up not in existing:
+                    added_type = "일반"
+                    if sb_sp: added_type = "안전자산" if is_white else "특수"
+                    
+                    target_list.append({
+                        "ticker": tk_up, "type": added_type, 
+                        "avg_price": float(sb_avg), "shares": float(sb_sh)
+                    })
+                    save_portfolio()
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.warning(f"{tk_up}는 이미 존재하는 종목입니다.")
+
+    st.divider()
+
+    # 🌟 백업/복구창 최하단으로 다시 이동 🌟
     with st.expander("📂 데이터 백업 및 복구 (안전 장치)", expanded=False):
         st.markdown("<p style='color:#0f172a; font-weight:800; margin-bottom:8px;'>클라우드 초기화에 대비해 데이터를 저장하세요.</p>", unsafe_allow_html=True)
         
@@ -329,10 +391,10 @@ with st.sidebar:
                     st.session_state.blue_stocks = restored.get("blue_stocks", [])
                     
                     rst_settings = restored.get("settings", {})
-                    st.session_state.total_seed = rst_settings.get("total_seed", 100000)
-                    st.session_state.extra_cash = rst_settings.get("extra_cash", 30000)
-                    st.session_state.exchange_rate = rst_settings.get("exchange_rate", 1380)
-                    st.session_state.white_ratio = rst_settings.get("white_ratio", 50)
+                    st.session_state["total_seed"] = rst_settings.get("total_seed", 100000)
+                    st.session_state["extra_cash"] = rst_settings.get("extra_cash", 30000)
+                    st.session_state["exchange_rate"] = rst_settings.get("exchange_rate", 1380)
+                    st.session_state["white_ratio"] = rst_settings.get("white_ratio", 50)
 
                     for t_key in ["white", "blue"]:
                         for s in st.session_state[f"{t_key}_stocks"]:
@@ -345,55 +407,6 @@ with st.sidebar:
                     st.rerun()
                 except Exception as e:
                     st.error(f"파일 복구 중 오류가 발생했습니다. 원인: {e}")
-
-    st.divider()
-
-    st.markdown("#### 💰 투자 목표(Target) 세팅")
-    total_seed    = st.number_input("전체 가용 시드 (USD $)", min_value=1000, max_value=10_000_000, value=int(st.session_state.get("total_seed", default_seed)), step=1000, format="%d", key="total_seed")
-    extra_cash    = st.number_input("여유 현금 보유액 (USD $)", min_value=0, max_value=10_000_000, value=int(st.session_state.get("extra_cash", default_cash)), step=1000, format="%d", key="extra_cash")
-    exchange_rate = st.number_input("환율 (USD→KRW)", min_value=1000, max_value=2000, value=int(st.session_state.get("exchange_rate", default_ex)), step=10, key="exchange_rate")
-    
-    st.divider()
-    st.markdown("##### ⚖️ 주식 시드 목표 비중 (%)")
-    white_ratio = st.slider("🛡 백팀(안전금고) 목표 비중", 0, 100, int(st.session_state.get("white_ratio", default_w_ratio)), 5, key="white_ratio")
-    blue_ratio  = 100 - white_ratio
-    
-    if white_ratio == 50:
-        st.success(f"✅ 완벽한 50:50 황금 밸런스 유지중")
-    else:
-        st.warning(f"💡 백팀 금고 해제 (리밸런싱) 모드 활성화\n(현재 백 {white_ratio} : 청 {blue_ratio})\n폭락장 평단 낮추기 전용")
-        
-    st.divider()
-    
-    with st.expander("⚡ 빠른 종목 추가 (Quick Add)", expanded=False):
-        sb_team = st.selectbox("소속 팀 선택", ["🛡 백팀 (안전금고)", "🚀 청팀 (세포분열)"], label_visibility="collapsed")
-        sb_tk = st.text_input("티커 (예: AAPL)", key="sb_tk_input")
-        sb_c1, sb_c2 = st.columns(2)
-        sb_avg = sb_c1.number_input("내 평단가 ($)", min_value=0.0, step=1.0, key="sb_avg_input")
-        sb_sh = sb_c2.number_input("보유 수량", min_value=0.0, step=1.0, key="sb_sh_input")
-        sb_sp = st.checkbox("✨ 특수 룰 적용 (백:안전 / 청:1군)", key="sb_sp_input")
-        
-        if st.button("➕ 종목 추가하기", use_container_width=True, type="primary"):
-            tk_up = sb_tk.strip().upper()
-            if tk_up:
-                is_white = "백팀" in sb_team
-                team_key = "white" if is_white else "blue"
-                target_list = st.session_state[f"{team_key}_stocks"]
-                existing = [s["ticker"] for s in target_list]
-                
-                if tk_up not in existing:
-                    added_type = "일반"
-                    if sb_sp: added_type = "안전자산" if is_white else "특수"
-                    
-                    target_list.append({
-                        "ticker": tk_up, "type": added_type, 
-                        "avg_price": float(sb_avg), "shares": float(sb_sh)
-                    })
-                    save_portfolio()
-                    st.cache_data.clear()
-                    st.rerun()
-                else:
-                    st.warning(f"{tk_up}는 이미 존재하는 종목입니다.")
 
     st.divider()
     if st.button("🔄  데이터 새로고침", use_container_width=True):
@@ -413,7 +426,7 @@ with hc1:
     st.markdown('<p class="hunter-title">🎯 HUNTER PROTOCOL</p>', unsafe_allow_html=True)
     st.markdown("재민의 퀀트 대시보드 — **폭락장의 본질은 부의 대이동이다!**")
 with hc2:
-    st.metric("총 자산 (시드 + 현금)", fmt_usd(total_seed + extra_cash))
+    st.metric("총 자산 (시드 + 현금)", fmt_usd(st.session_state["total_seed"] + st.session_state["extra_cash"]))
 
 with st.expander("🚨 폭락장 절대 원칙 & 분미프 매뉴얼 (클릭하여 숙지)", expanded=False):
     st.markdown("""
@@ -493,8 +506,8 @@ st.divider()
 # ─────────────────────────────────────────
 # 백그라운드 데이터 사전 계산
 # ─────────────────────────────────────────
-target_white_budget = total_seed * (white_ratio / 100)
-target_blue_budget  = total_seed * (blue_ratio  / 100)
+target_white_budget = st.session_state["total_seed"] * (st.session_state["white_ratio"] / 100)
+target_blue_budget  = st.session_state["total_seed"] * ((100 - st.session_state["white_ratio"]) / 100)
 
 allocations = {"white": {}, "blue": {}}
 stock_cache = {}
@@ -533,10 +546,10 @@ def process_team_data(team_stocks, team_budget, team_type):
 current_white_invested = process_team_data(st.session_state.white_stocks, target_white_budget, "white")
 current_blue_invested = process_team_data(st.session_state.blue_stocks, target_blue_budget, "blue")
 current_total_invested = current_white_invested + current_blue_invested
-current_cash_remaining = total_seed - current_total_invested
+current_cash_remaining = st.session_state["total_seed"] - current_total_invested
 
-total_assets = total_seed + extra_cash
-total_actual_cash = current_cash_remaining + extra_cash
+total_assets = st.session_state["total_seed"] + st.session_state["extra_cash"]
+total_actual_cash = current_cash_remaining + st.session_state["extra_cash"]
 cash_ratio_pct = (total_actual_cash / total_assets) * 100 if total_assets > 0 else 0
 
 cash_status_msg = "🟢 정상 (안정적인 20~30% 확보)"
@@ -560,16 +573,16 @@ with tc1:
         f"<div style='color:#1e293b;font-weight:900;font-size:1.1rem;margin-bottom:4px;'>🎯 목표 비중 (Target Allocation)</div>"
         f"<div style='color:#64748b;font-size:0.8rem;margin-bottom:16px;'>모든 시드가 시장에 투입되었을 때의 평생 유지 나침반</div>"
         f"<div style='display:flex;justify-content:space-between;margin-bottom:8px;'>"
-        f"<div><span style='color:#2563eb;font-weight:800;'>🛡 백팀 (안전금고)</span> <span style='font-weight:700;'>{white_ratio}%</span></div>"
+        f"<div><span style='color:#2563eb;font-weight:800;'>🛡 백팀 (안전금고)</span> <span style='font-weight:700;'>{st.session_state['white_ratio']}%</span></div>"
         f"<div style='font-weight:800;color:#0f172a;'>{fmt_usd(target_white_budget)}</div>"
         f"</div>"
         f"<div style='display:flex;justify-content:space-between;margin-bottom:16px;'>"
-        f"<div><span style='color:#10b981;font-weight:800;'>🚀 청팀 (세포분열)</span> <span style='font-weight:700;'>{blue_ratio}%</span></div>"
+        f"<div><span style='color:#10b981;font-weight:800;'>🚀 청팀 (세포분열)</span> <span style='font-weight:700;'>{100 - st.session_state['white_ratio']}%</span></div>"
         f"<div style='font-weight:800;color:#0f172a;'>{fmt_usd(target_blue_budget)}</div>"
         f"</div>"
         f"<div style='width:100%;height:12px;border-radius:6px;display:flex;overflow:hidden;'>"
-        f"<div style='width:{white_ratio}%;background:#3b82f6;'></div>"
-        f"<div style='width:{blue_ratio}%;background:#10b981;'></div>"
+        f"<div style='width:{st.session_state['white_ratio']}%;background:#3b82f6;'></div>"
+        f"<div style='width:{100 - st.session_state['white_ratio']}%;background:#10b981;'></div>"
         f"</div>"
         f"</div>", unsafe_allow_html=True
     )
@@ -617,7 +630,7 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
 
     stage_budget = remaining_budget_usd * stage["pct"] if stage else 0
     split_10_usd = stage_budget / 10 if stage else 0
-    split_10_krw = split_10_usd * exchange_rate
+    split_10_krw = split_10_usd * st.session_state["exchange_rate"]
 
     if stage and stage["stage"] < 4:
         border_style = f"3px solid {stage['color']}"
@@ -693,6 +706,7 @@ def render_stock_card(ticker, data, stage, effective_val, alloc_budget, alloc_w,
 
         with st.expander("📝 나의 매수 기록 (평단 / 수량 업데이트)", expanded=False):
             ic1, ic2 = st.columns(2)
+            # 여기의 위젯 키는 사이드바 위젯과 겹치지 않게 'avg_white_AAPL' 등으로 유일함
             ic1.number_input("평단가 ($)", value=float(my_avg), key=f"avg_{team_key}_{ticker}", step=1.0)
             ic2.number_input("보유 수량 (주)", value=float(my_shares), key=f"sh_{team_key}_{ticker}", step=1.0)
 
@@ -806,7 +820,7 @@ def render_team(team_key, team_label, team_budget, team_color, team_emoji):
                 rem_budget = max(0.0, alloc_data["budget"] - (stock_dict.get("avg_price",0)*stock_dict.get("shares",0)))
                 stage_budget = rem_budget * stage["pct"] if (stage and stage["stage"] < 4) else 0
                 buy_usd_1_split = stage_budget / 10
-                buy_krw_1_split = buy_usd_1_split * exchange_rate
+                buy_krw_1_split = buy_usd_1_split * st.session_state["exchange_rate"]
                 
                 render_stock_card(
                     ticker=ticker, data=data, stage=stage, effective_val=effective_val, 
@@ -965,3 +979,5 @@ if all_rows:
     """
 
     st.markdown(table_html, unsafe_allow_html=True)
+
+save_portfolio()
