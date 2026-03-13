@@ -1,6 +1,6 @@
 """
-HUNTER PROTOCOL v21.1 — 파일 복구 오류 완벽 해결판
-Streamlit + yfinance | 로컬 JSON 업로드/다운로드 디코딩 안정화 적용
+HUNTER PROTOCOL v21.2 — 파일 복구 위젯 충돌 오류(Instantiated Error) 완벽 해결판
+Streamlit + yfinance | 데이터 복구 모듈 최상단 배치로 세션 스테이트 충돌 원천 차단
 """
 
 import streamlit as st
@@ -83,6 +83,11 @@ st.markdown("""
     [data-testid="stSidebar"] input { background: #f8fafc !important; border: 1px solid #cbd5e1 !important; color: #0f172a !important; border-radius: 10px !important; font-weight: 600 !important; }
     [data-testid="stSidebar"] input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 1px #3b82f6 !important; }
     [data-testid="stSidebar"] hr { border-bottom-color: #e2e8f0 !important; }
+
+    /* 🌟 데이터 백업/복구 (파일 업로더) 시인성 강제 패치 🌟 */
+    [data-testid="stFileUploadDropzone"] { background-color: #f8fafc !important; border: 2px dashed #94a3b8 !important; border-radius: 12px !important; padding: 24px !important; }
+    [data-testid="stFileUploadDropzone"] div, [data-testid="stFileUploadDropzone"] span, [data-testid="stFileUploadDropzone"] small { color: #0f172a !important; font-weight: 800 !important; }
+    div[data-testid="stExpander"] details summary p { color: #0f172a !important; font-weight: 800 !important; }
 
     /* 메트릭 및 컨테이너 */
     [data-testid="metric-container"] { background: white !important; border: 1px solid #e2e8f0 !important; border-radius: 16px !important; padding: 16px !important; box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important; }
@@ -197,7 +202,7 @@ STAGES_MA = [
 ]
 
 # ─────────────────────────────────────────
-# 데이터 패치 유틸리티 (API 호출 최적화 - V21 핵심 로직)
+# 데이터 패치 유틸리티
 # ─────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_macro_data():
@@ -287,14 +292,70 @@ with st.sidebar:
     st.caption("거대 자본의 흐름을 읽는 어군탐지기")
     st.divider()
     
+    # 🌟 V21.2 핵심 패치: 오류 방지를 위해 복구 모듈을 최상단으로 끌어올림 🌟
+    with st.expander("📂 데이터 백업 및 복구 (안전 장치)", expanded=False):
+        st.markdown("<p style='color:#0f172a; font-weight:800; margin-bottom:8px;'>클라우드 초기화에 대비해 데이터를 저장하세요.</p>", unsafe_allow_html=True)
+        
+        current_backup_data = {
+            "white_stocks": st.session_state.get("white_stocks", []),
+            "blue_stocks": st.session_state.get("blue_stocks", []),
+            "settings": {
+                "total_seed": st.session_state.get("total_seed", default_seed),
+                "extra_cash": st.session_state.get("extra_cash", default_cash),
+                "exchange_rate": st.session_state.get("exchange_rate", default_ex),
+                "white_ratio": st.session_state.get("white_ratio", default_w_ratio)
+            }
+        }
+        backup_json_str = json.dumps(current_backup_data, ensure_ascii=False, indent=4)
+        
+        st.download_button(
+            label="💾 내 포트폴리오 백업하기",
+            data=backup_json_str,
+            file_name=f"hunter_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+        
+        st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("백업 파일(.json) 업로드", type=["json"], label_visibility="collapsed")
+        
+        if uploaded_file is not None:
+            if st.button("🔄 이 파일로 완벽 복구하기", use_container_width=True, type="primary"):
+                try:
+                    file_content = uploaded_file.getvalue().decode("utf-8")
+                    restored = json.loads(file_content)
+                    
+                    st.session_state.white_stocks = restored.get("white_stocks", [])
+                    st.session_state.blue_stocks = restored.get("blue_stocks", [])
+                    
+                    rst_settings = restored.get("settings", {})
+                    st.session_state.total_seed = rst_settings.get("total_seed", 100000)
+                    st.session_state.extra_cash = rst_settings.get("extra_cash", 30000)
+                    st.session_state.exchange_rate = rst_settings.get("exchange_rate", 1380)
+                    st.session_state.white_ratio = rst_settings.get("white_ratio", 50)
+
+                    for t_key in ["white", "blue"]:
+                        for s in st.session_state[f"{t_key}_stocks"]:
+                            st.session_state[f"avg_{t_key}_{s['ticker']}"] = float(s.get("avg_price", 0.0))
+                            st.session_state[f"sh_{t_key}_{s['ticker']}"] = float(s.get("shares", 0.0))
+
+                    save_portfolio()
+                    st.success("✅ 데이터가 성공적으로 복구되었습니다!")
+                    time.sleep(0.5)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"파일 복구 중 오류가 발생했습니다. 원인: {e}")
+
+    st.divider()
+
     st.markdown("#### 💰 투자 목표(Target) 세팅")
-    total_seed    = st.number_input("전체 가용 시드 (USD $)", min_value=1000, max_value=10_000_000, value=int(default_seed), step=1000, format="%d", key="total_seed")
-    extra_cash    = st.number_input("여유 현금 보유액 (USD $)", min_value=0, max_value=10_000_000, value=int(default_cash), step=1000, format="%d", key="extra_cash")
-    exchange_rate = st.number_input("환율 (USD→KRW)", min_value=1000, max_value=2000, value=int(default_ex), step=10, key="exchange_rate")
+    total_seed    = st.number_input("전체 가용 시드 (USD $)", min_value=1000, max_value=10_000_000, value=int(st.session_state.get("total_seed", default_seed)), step=1000, format="%d", key="total_seed")
+    extra_cash    = st.number_input("여유 현금 보유액 (USD $)", min_value=0, max_value=10_000_000, value=int(st.session_state.get("extra_cash", default_cash)), step=1000, format="%d", key="extra_cash")
+    exchange_rate = st.number_input("환율 (USD→KRW)", min_value=1000, max_value=2000, value=int(st.session_state.get("exchange_rate", default_ex)), step=10, key="exchange_rate")
     
     st.divider()
     st.markdown("##### ⚖️ 주식 시드 목표 비중 (%)")
-    white_ratio = st.slider("🛡 백팀(안전금고) 목표 비중", 0, 100, int(default_w_ratio), 5, key="white_ratio")
+    white_ratio = st.slider("🛡 백팀(안전금고) 목표 비중", 0, 100, int(st.session_state.get("white_ratio", default_w_ratio)), 5, key="white_ratio")
     blue_ratio  = 100 - white_ratio
     
     if white_ratio == 50:
@@ -335,63 +396,11 @@ with st.sidebar:
                     st.warning(f"{tk_up}는 이미 존재하는 종목입니다.")
 
     st.divider()
-
-    # 🌟 V21.1 핵심: 업로드된 파일 포인터 에러 방어 로직 완벽 적용 🌟
-    with st.expander("📂 데이터 백업 및 복구 (안전 장치)", expanded=False):
-        st.caption("클라우드 초기화에 대비해 데이터를 저장하세요.")
-        
-        current_backup_data = {
-            "white_stocks": st.session_state.white_stocks,
-            "blue_stocks": st.session_state.blue_stocks,
-            "settings": {
-                "total_seed": st.session_state.total_seed,
-                "extra_cash": st.session_state.extra_cash,
-                "exchange_rate": st.session_state.exchange_rate,
-                "white_ratio": st.session_state.white_ratio
-            }
-        }
-        backup_json_str = json.dumps(current_backup_data, ensure_ascii=False, indent=4)
-        
-        st.download_button(
-            label="💾 내 포트폴리오 백업하기",
-            data=backup_json_str,
-            file_name=f"hunter_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-            mime="application/json",
-            use_container_width=True
-        )
-        
-        st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("백업 파일(.json) 업로드", type=["json"], label_visibility="collapsed")
-        
-        if uploaded_file is not None:
-            if st.button("🔄 이 파일로 완벽 복구하기", use_container_width=True, type="primary"):
-                try:
-                    # 파일의 이진 데이터를 강제로 읽어와서 명확하게 UTF-8 텍스트로 디코딩
-                    file_content = uploaded_file.getvalue().decode("utf-8")
-                    restored = json.loads(file_content)
-                    
-                    st.session_state.white_stocks = restored.get("white_stocks", [])
-                    st.session_state.blue_stocks = restored.get("blue_stocks", [])
-                    
-                    rst_settings = restored.get("settings", {})
-                    st.session_state.total_seed = rst_settings.get("total_seed", 100000)
-                    st.session_state.extra_cash = rst_settings.get("extra_cash", 30000)
-                    st.session_state.exchange_rate = rst_settings.get("exchange_rate", 1380)
-                    st.session_state.white_ratio = rst_settings.get("white_ratio", 50)
-
-                    for t_key in ["white", "blue"]:
-                        for s in st.session_state[f"{t_key}_stocks"]:
-                            st.session_state[f"avg_{t_key}_{s['ticker']}"] = float(s.get("avg_price", 0.0))
-                            st.session_state[f"sh_{t_key}_{s['ticker']}"] = float(s.get("shares", 0.0))
-
-                    save_portfolio()
-                    st.success("✅ 데이터가 성공적으로 복구되었습니다!")
-                    time.sleep(0.5)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"파일 복구 중 오류가 발생했습니다. 원인: {e}")
-
-    st.divider()
+    if st.button("🔄  데이터 새로고침", use_container_width=True):
+        st.cache_data.clear()
+        st.success("캐시 초기화 완료!")
+        time.sleep(0.4)
+        st.rerun()
     if st.button("🚪  로그아웃", use_container_width=True):
         st.session_state.authenticated = False
         st.rerun()
